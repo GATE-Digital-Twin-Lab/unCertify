@@ -8,4 +8,4 @@ There are no codes in this repo currently, but here's what to expect:
 * An automatic uncertainty compiler
 * An uncertainty contructor, powered by LLMs
 
-![uncertify logo](img/logo_text_white.png "Title")
+<img src="img/logo_text_white.png" alt="uncertify logo" width="100"/>
