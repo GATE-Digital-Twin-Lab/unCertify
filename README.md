@@ -7,3 +7,5 @@ There are no codes in this repo currently, but here's what to expect:
 * A rigorous surrogate modelling suite
 * An automatic uncertainty compiler
 * An uncertainty contructor, powered by LLMs
+
+![uncertify logo](logo_text.png "Title")
