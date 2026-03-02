@@ -68,6 +68,8 @@ print(vertices_Ch)
 print("f_target range (Chebyshev minimax method):")
 print(f_rangeCh)
 
+# Plot the zonotope with f_target curve
+
 model.plot_zonotope_2d(
     c_Ch,
     vertices_Ch,
@@ -93,6 +95,8 @@ print(vertices_MR)
 
 print("f_target range (Minimum range method):")
 print(f_rangeMR)
+
+# Plot the zonotope with f_target curve
 
 model.plot_zonotope_2d(
     c_lp,
@@ -165,6 +169,8 @@ print(vertices_Ch)
 print("f_target range (Chebyshev minimax method):")
 print(f_rangeCh)
 
+# Plot the zonotope with f_target surface
+
 model.plot_zonotope_3d(
     vertices=vertices_Ch,
     var_names= labels[1:],
@@ -189,6 +195,8 @@ print(vertices_MR)
 
 print("f_target range (Minimum range method):")
 print(f_rangeMR)
+
+# Plot the zonotope with f_target surface
 
 model.plot_zonotope_3d(
     vertices=vertices_MR,
