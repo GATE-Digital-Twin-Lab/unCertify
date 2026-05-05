@@ -33,9 +33,9 @@ sig_dig = 12  # global significant digits for outward rounding
 # Default differential-evolution settings shared by both fit methods
 # ---------------------------------------------------------------------------
 _DE_DEFAULTS_CHEB = dict(
-    seed=42,
-    tol=1e-8,
-    atol=1e-8,
+    seed=45,
+    tol=1e-6,
+    atol=1e-6,
     maxiter=1000,
     popsize=15,
     mutation=(0.5, 1.0),
@@ -43,7 +43,7 @@ _DE_DEFAULTS_CHEB = dict(
 )
 
 _DE_DEFAULTS_MR = dict(
-    seed=42,
+    seed=45,
     tol=1e-6,
     atol=1e-6,
     maxiter=1000,
@@ -151,6 +151,14 @@ class AffineZonotope:
         """Apply outward rounding to an [lo, hi] pair."""
         return self._oB(lo, left=True), self._oB(hi, left=False)
     
+    class _FEvalCounter:          # ← sits inside the optimizer class
+        def __init__(self, fn):
+            self._fn   = fn
+            self.count = 0
+        def __call__(self, x):
+            self.count += 1
+            return self._fn(x)
+
     # -----------------------------------------------------------------------
     # Fit method 1 — Chebyshev / SIP minimax
     # -----------------------------------------------------------------------
@@ -184,18 +192,25 @@ class AffineZonotope:
         de_kw = self._merge_de_kwargs(_DE_DEFAULTS_CHEB, de_kwargs)
         n     = self.n
 
+        f_counter = self._FEvalCounter(self._f_vec)   # ← wrap once, use everywhere
+
+        total_outer_iters = 0
+        total_inner_iters = 0
+
         # -- Inner oracle: maximise |f(x) − aᵀx − b| over the box ----------
         def _inner_solve(a, b):
             def neg_abs_res(x):
-                return -np.abs(self._f_vec(x) - np.dot(a, x) - b)
+                return -np.abs(f_counter(x) - np.dot(a, x) - b)
 
             res = differential_evolution(neg_abs_res, self.box, **de_kw)
-            return res.x, -res.fun   # (x_worst, worst_residual)
+            return res.x, -res.fun, res.nit   # (x_worst, worst_residual)
 
         # -- SIP outer loop --------------------------------------------------
         active_pts = [self.x0.copy()]
 
         for it in range(max_iter):
+
+            total_outer_iters += 1
 
             # Outer LP/NLP: minimise t subject to current active constraints
             def objective(z):
@@ -204,7 +219,7 @@ class AffineZonotope:
             def _make_con(xk):
                 def con(z):
                     a, b, t = z[:n], z[n], z[n + 1]
-                    return t - np.abs(self._f_vec(xk) - np.dot(a, xk) - b)
+                    return t - np.abs(f_counter(xk) - np.dot(a, xk) - b)
                 return {'type': 'ineq', 'fun': con}
 
             constraints = [_make_con(xk) for xk in active_pts]
@@ -222,14 +237,15 @@ class AffineZonotope:
             t_opt = res_outer.x[n + 1]
 
             # Inner: find global worst-case point
-            x_worst, val_worst = _inner_solve(a_opt, b_opt)
+            x_worst, val_worst, de_nit = _inner_solve(a_opt, b_opt)
+            total_inner_iters += de_nit
 
             if verbose:
                 print(
                     f"[Chebyshev] iter {it + 1:3d}: "
                     f"t = {t_opt:.8f}, "
                     f"worst_res = {val_worst:.8f}, "
-                    f"x_worst = {x_worst}"
+                    f"f-evals so far = {f_counter.count}"   # ← live count
                 )
 
             # Convergence
@@ -247,6 +263,22 @@ class AffineZonotope:
         self.b_opt = b_opt
         self.t_opt = t_cheb
 
+        self.sip_stats = {
+            'outer_iterations' : total_outer_iters,
+            'inner_de_iters'   : total_inner_iters,
+            'total_iters'      : total_outer_iters + total_inner_iters,
+            'total_f_evals'    : f_counter.count,   # ← exact grand total
+        }
+
+        if verbose:
+            s = self.sip_stats
+            print(
+                f"[Chebyshev] SIP outer iters  : {s['outer_iterations']}\n"
+                f"[Chebyshev] DE inner iters   : {s['inner_de_iters']}\n"
+                f"[Chebyshev] Total iters      : {s['total_iters']}\n"
+                f"[Chebyshev] Total f(x) evals : {s['total_f_evals']}"
+            )
+
         return self
 
     # -----------------------------------------------------------------------
@@ -258,6 +290,7 @@ class AffineZonotope:
         solver: str     = None,
         grad_eps: float = 1e-8,
         de_kwargs: dict = None,
+        verbose: bool   = True,
     ):
         """
         Minimum-range affine approximation via LP.
@@ -278,16 +311,21 @@ class AffineZonotope:
 
         Extra attributes set
         --------------------
-        c_lp     : ndarray shape (n+1,)  — [gamma, alpha*]
-        delta_lp : float                 — half-width of g-residual enclosure
+        c_mr     : ndarray shape (n+1,)  — [gamma, alpha*]
+        delta_mr : float                 — half-width of g-residual enclosure
         """
         de_kw = self._merge_de_kwargs(_DE_DEFAULTS_MR, de_kwargs)
         x0, x1, box = self.x0, self.x1, self.box
         dim          = self.n
 
-        # -- Step 1: gradient bounds at corners ------------------------------
-        g_low  = approx_fprime(self.l, self._f_vec, grad_eps)
-        g_high = approx_fprime(self.u, self._f_vec, grad_eps)
+        f_counter = self._FEvalCounter(self._f_vec) # ← wrap once, use everywhere
+
+        # -- Step 1: gradient bounds at corners ----------------------------------
+        # Pass f_counter instead of self._f_vec → approx_fprime calls are counted
+        g_low  = approx_fprime(self.l, f_counter, grad_eps)   # ← f_counter
+        g_high = approx_fprime(self.u, f_counter, grad_eps)   # ← f_counter
+
+        grad_evals = f_counter.count   # snapshot: evals used by finite-diff only
 
         d_min = np.minimum(g_low, g_high)
         d_max = np.maximum(g_low, g_high)
@@ -309,20 +347,39 @@ class AffineZonotope:
 
         alpha_star = alpha.value   # shape (dim,)
 
+        if verbose:
+            print(f"[MinRange] Step 2 — LP solved. alpha* = {alpha_star}")
+
         # -- Step 3: global min/max of g(x) = f(x) − alpha*ᵀx --------------
         def g_scalar(x):
-            return self._f_vec(x) - float(alpha_star @ x)
+            return f_counter(x) - float(alpha_star @ x)
 
         res_min = differential_evolution(g_scalar,           box, **de_kw)
         res_max = differential_evolution(lambda x: -g_scalar(x), box, **de_kw)
 
-        g_global_min = res_min.fun
+        # DE for minimum
+        evals_before_de_min = f_counter.count
+        res_min  = differential_evolution(g_scalar, box, **de_kw)
+        de_min_nfev = f_counter.count - evals_before_de_min   # evals this DE used
+        de_min_nit  = res_min.nit
+
+
+        # DE for maximum
+        evals_before_de_max = f_counter.count
+        res_max  = differential_evolution(lambda x: -g_scalar(x), box, **de_kw)
+        de_max_nfev = f_counter.count - evals_before_de_max   # evals this DE used
+        de_max_nit  = res_max.nit
+
+        g_global_min =  res_min.fun
         g_global_max = -res_max.fun
 
         # Cross-check at all 2^n corners of the box
         corners_eps = np.array(list(itertools.product([-1, 1], repeat=dim)))
         X_corners   = np.array([x0 + np.diag(x1) @ e for e in corners_eps])
-        g_corners   = np.array([g_scalar(xc) for xc in X_corners])
+
+        evals_before_corners = f_counter.count
+        g_corners = np.array([g_scalar(xc) for xc in X_corners])  # ← via f_counter
+        corner_evals = f_counter.count - evals_before_corners      # = 2^n
 
         g_lo = min(g_global_min, g_corners.min())
         g_hi = max(g_global_max, g_corners.max())
@@ -339,6 +396,34 @@ class AffineZonotope:
         self.a_opt = alpha_star
         self.b_opt = gamma
         self.t_opt = float(delta)
+
+        # ── Stats dict (mirrors fit_chebyshev layout) ────────────────────────────
+        self.mr_stats = {
+            'grad_fd_evals'    : grad_evals,                      # Step 1
+            'de_min_iters'     : de_min_nit,                      # Step 3a
+            'de_min_nfev'      : de_min_nfev,                     # Step 3a
+            'de_max_iters'     : de_max_nit,                      # Step 3b
+            'de_max_nfev'      : de_max_nfev,                     # Step 3b
+            'total_de_iters'   : de_min_nit + de_max_nit,
+            'corner_evals'     : corner_evals,                    # Step 3c
+            'total_f_evals'    : f_counter.count,                 # ← grand total
+        }
+
+        if verbose:
+            s = self.mr_stats
+            print(
+                f"\n[MinRange] ── Summary ──────────────────────────────\n"
+                f"[MinRange] Grad FD evals     : {s['grad_fd_evals']}\n"
+                f"[MinRange] DE (min) iters    : {s['de_min_iters']}\n"
+                f"[MinRange] DE (min) nfev     : {s['de_min_nfev']}\n"
+                f"[MinRange] DE (max) iters    : {s['de_max_iters']}\n"
+                f"[MinRange] DE (max) nfev     : {s['de_max_nfev']}\n"
+                f"[MinRange] Total DE iters    : {s['total_de_iters']}\n"
+                f"[MinRange] Corner evals      : {s['corner_evals']}\n"
+                f"[MinRange] Total f(x) evals  : {s['total_f_evals']}\n"
+                f"[MinRange] ────────────────────────────────────────────"
+            )
+
  
         return self
 
@@ -409,7 +494,7 @@ class AffineZonotope:
         return self
 
     # -----------------------------------------------------------------------
-    # Plotting
+    # Plotting 
     # -----------------------------------------------------------------------
  
     def plot_zonotope_3d(

@@ -45,15 +45,15 @@ def branin(x):
     """Branin function — accepts 1-D ndarray x of shape (2,)."""
     x1 = 15 * x[0] - 5
     x2 = 15 * x[1]
-
+ 
     a = 1
     b = 5.1 / (4 * np.pi**2)
     c = 5  / np.pi
     r = 6
     s = 10
     t = 1 / (8 * np.pi)
-
-    return a * (x2 - b * x1**2 + c * x1 - r)**2 + s * (1 - t) * np.cos(x1) + s
+ 
+    return a * (x2 - b * x1**2 + c * x1 - r)**2 + s * (1 - t) * np.cos(x1) + s + 5*x1
 
 
 l_branin = [0.0, 0.0]
@@ -69,7 +69,7 @@ az_branin = AffineZonotope(branin, l_branin, u_branin)
 
 az_branin.fit_chebyshev(
     solver='SLSQP',
-    verbose=False,        # set True to watch SIP iterations
+    verbose=True,        # set True to watch SIP iterations
 )
 az_branin.build_zonotope()
 
@@ -88,6 +88,7 @@ az_branin.plot_zonotope_3d(
 # ---------------------------------------------------------------------------
 az_branin.fit_min_range(
     solver='OSQP',
+    verbose=True,
 )
 az_branin.build_zonotope()
 
@@ -122,7 +123,7 @@ az_saddle = AffineZonotope(f_saddle, l_saddle, u_saddle)
 
 az_saddle.fit_chebyshev(
     #solver='SLSQP',
-    verbose=False,
+    verbose=True,
 )
 az_saddle.build_zonotope()
 
@@ -130,7 +131,7 @@ az_saddle.build_zonotope()
 az_saddle.fit_chebyshev(
     tol=1e-12,
     max_iter=500,
-    verbose=False,
+    verbose=True,
     de_kwargs={'seed': 7, 'maxiter': 2000}
 )
 
@@ -146,6 +147,8 @@ az_saddle.plot_zonotope_3d(
 # ---------------------------------------------------------------------------
 az_saddle.fit_min_range(
     solver = 'CLARABEL',
+    verbose=True,
+    de_kwargs={'seed': 7, 'maxiter': 2000}
 )
 az_saddle.build_zonotope()
 
@@ -161,10 +164,14 @@ az_saddle.plot_zonotope_3d(
 az2 = AffineZonotope(f_saddle, l_saddle, u_saddle)
 az2.fit_min_range(
     grad_eps=1e-6,
-    de_kwargs={'seed': 99, 'popsize': 30}
+    de_kwargs={'seed': 19, 'popsize': 30}
 )
 
 # %%
 repr(az2)
 print(az2)
+
+az2.build_zonotope()
+
+print_results("Saddle f = x₁²−x₂² — Minimum-range using QP/LP fit", az2)
 # %%
