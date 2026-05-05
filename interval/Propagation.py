@@ -11,11 +11,21 @@ Created on Fri May  6 11:29:21 2022
 """
 
 import numpy as np
-from interval import Interval as ival
+import Interval as ival
 
 from itertools import product
 
 from typing import Union
+
+CACHE = {'samples_dict':dict(),
+         'eval_count':0,
+         'saved_signs':None}
+
+# global samples_dict, eval_count, saved_signs
+# samples_dict = dict()
+# eval_count = 0
+# saved_signs = None
+
 
 def vertex_method(intervals:Union[list, np.ndarray], fun, individual_dims=False,
                   return_samples=False):
@@ -51,6 +61,73 @@ def vertex_method(intervals:Union[list, np.ndarray], fun, individual_dims=False,
     if return_samples: return y, samples
     
     return y
+
+def make_extreme_point_propagator(monotonic_function):
+    '''This version will have the ability to accept previously computed signs
+    to save d+1 model runs'''
+    
+    # TODO: open an input to specify if signs should be recomputed regardless of cache
+    # This is important for SIR and functions whose extremum occurs inside the domain
+    
+    #TODO: make this a wrapper also for VP and potentially other deterministic UP approaches
+    
+    def propagate(intervals, out_use=0, cache=True, out_cache=0):
+        saved_signs = CACHE['saved_signs']
+        intervals = ival.to_array(intervals)
+        
+        
+        if saved_signs is None or len(saved_signs) != len(intervals):
+            saved_signs = []
+            
+            lower_bounds = [low for low, high in intervals]
+            baseline = check_cached_samples(lower_bounds, out_use, cache, out_cache)
+                        
+            for i, (low, high) in enumerate(intervals):
+                test_point = lower_bounds.copy()
+                test_point[i] = high
+                value = check_cached_samples(test_point, out_use, cache, out_cache)
+                difference = value - baseline
+                saved_signs.append(1 if difference > 0 else (-1 if difference < 0 else 0))
+            CACHE['saved_signs'] = saved_signs 
+            
+        max_point = [
+            high if sign > 0 else low
+            for (low, high), sign in zip(intervals, saved_signs)
+        ]
+        min_point = [
+            high if sign < 0 else low
+            for (low, high), sign in zip(intervals, saved_signs)
+        ]
+        
+        max_value = check_cached_samples(max_point, out_use, cache, out_cache)
+        min_value = check_cached_samples(min_point, out_use, cache, out_cache)
+
+        return ival.I(min_value, max_value)
+
+    def check_cached_samples(test_point, out_use, cache, out_cache):
+        s_tstpt = str(test_point)
+        if not cache or CACHE['samples_dict'].get(s_tstpt) is None:
+            value = monotonic_function(test_point)
+            if hasattr(value, '__len__'): #Multioutput
+                value_use = value[out_use]
+                value_cache = value[out_cache]
+            else: #Single output
+                value_use = value
+                value_cache = [value]
+                
+            CACHE['samples_dict'][s_tstpt] = value_cache #Comment out to turn caching off
+            CACHE['eval_count'] += 1
+        else:
+            try:
+                value_use = CACHE['samples_dict'][s_tstpt][out_use]
+            except:
+                raise(Exception(f'''Incorrect size of cached values.
+                                Requested index was {out_use}, but cached
+                                values have size {len(CACHE['samples_dict'][s_tstpt])}'''))
+        return value_use
+    
+    return propagate
+
 
 def samplingMethod(intervals, fun, n, method='montecarlo', endpoints=False):
     from scipy.stats import qmc
@@ -186,6 +263,7 @@ def subinterval_method(intervals:Union[list, np.ndarray], fun, n:Union[int,list]
     
     To Do:
         Return samples
+        Implement an octree mesh
     '''
     
     if type(n) == int: #All inputs have identical division
@@ -198,12 +276,20 @@ def subinterval_method(intervals:Union[list, np.ndarray], fun, n:Union[int,list]
     int_out = np.empty(num_int, dtype='object')
     
     match method.lower():
+        case 'interval': #Requires a file which understands the Interval class
+            for i, partition in enumerate(partitions):
+                # int_out[i] = fun(*ival.to_interval(partition))
+                int_out[i] = fun(ival.to_interval(partition))
         case 'vertex':
+            #Make sure to implement caching
             for i, partition in enumerate(partitions):
                 int_out[i] = vertex_method(ival.to_interval(partition), #This is a bit of a work around; improve if possible
                                            fun, individual_dims)
         case 'epp':
-            pass
+            epp_method = make_extreme_point_propagator(fun)
+            for i, partition in enumerate(partitions):
+                int_out[i] = epp_method(ival.to_interval(partition)) #This is a bit of a work around; improve if possible
+            
         case 'sampling':
             pass
         case 'cauchy':
