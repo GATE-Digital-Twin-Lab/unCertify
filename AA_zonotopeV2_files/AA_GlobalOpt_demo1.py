@@ -31,6 +31,10 @@ def print_results(label, az):
     print(f"  Output range : {az.f_range}")
     print(f"  Center       : {az.center}")
     print(f"  G matrix     :\n{az.G}")
+    print(f"  delta         : {az.t_opt}")
+    print(f"  alpha        : {az.a_opt}")
+
+
 
 
 # ===========================================================================

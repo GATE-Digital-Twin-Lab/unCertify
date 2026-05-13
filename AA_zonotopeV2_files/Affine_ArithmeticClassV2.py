@@ -43,11 +43,11 @@ _DE_DEFAULTS_CHEB = dict(
 )
 
 _DE_DEFAULTS_MR = dict(
-    seed=45,
+    seed=30,
     tol=1e-6,
     atol=1e-6,
     maxiter=1000,
-    popsize=15,
+    popsize=10,
     mutation=(0.5, 1.0),
     recombination=0.7,
 )
@@ -285,6 +285,99 @@ class AffineZonotope:
     # Fit method 2 — Minimum-range 
     # -----------------------------------------------------------------------
 
+    # def fit_min_range_new(
+    #     self,
+    #     solver: str     = None,
+    #     de_kwargs: dict = None,
+    #     verbose: bool   = True,    
+    # ):
+    #     de_kw = self._merge_de_kwargs(_DE_DEFAULTS_MR, de_kwargs)
+    #     x0, x1, box = self.x0, self.x1, self.box
+    #     dim          = self.n
+
+    #     f_counter = self._FEvalCounter(self._f_vec) # ← wrap once, use everywhere
+
+    #     # -- Step 1: global min/max of g(x) = f(x) − alpha*ᵀx --------------
+
+    #     # DE for minimum
+        
+    #     res_min  = differential_evolution(f_counter, box, **de_kw)
+    #     de_min_nfev = f_counter.count  # evals this DE used
+    #     de_min_nit  = res_min.nit
+
+    #     # DE for maximum
+
+    #     evals_before_de_max = f_counter.count
+    #     res_max  = differential_evolution(lambda x: -f_counter(x), box, **de_kw)
+    #     de_max_nfev = f_counter.count - evals_before_de_max   # evals this DE used
+    #     de_max_nit  = res_max.nit
+
+    #     g_global_min =  res_min.fun
+    #     g_global_max = -res_max.fun
+
+    #     xvec_min = res_min.x
+    #     xvec_max = res_max.x
+
+    #     # -- Step 2: LP — minimise Σ |x1_i · alpha_i| -----------------------
+    #     alpha = cp.Variable(dim)
+    #     z     = cp.Variable(1)
+
+    #     lp_constraints = [
+    #         z >= g_global_max - g_global_min - alpha @ (xvec_max - xvec_min),
+    #         z >= -(g_global_max - g_global_min - alpha @ (xvec_max - xvec_min)),
+    #         z >= 0,
+    #         alpha >= np.zeros(dim)
+    #     ]
+
+    #     prob = cp.Problem(cp.Minimize(z), lp_constraints)
+    #     prob.solve(solver=solver)
+
+    #     alpha_star = alpha.value   # shape (dim,)
+
+    #     # -- Step 4: gamma and delta -----------------------------------------
+    #     gamma    = 0.5 * (g_global_max + g_global_min - alpha_star @ (xvec_min + xvec_max))
+    #     _, delta = self._outer_bound(0.0, 0.5 * float(z.value))  # round delta UP
+
+    #     if verbose:
+    #         print(f"[MinRange] Step 2 — LP solved. alpha* = {alpha_star} delta = {delta}")
+
+    #     # Store MR-specific results
+    #     self.c_mr     = np.hstack((gamma, alpha_star))
+    #     self.delta_mr = float(delta)
+ 
+    #     # Map to common interface used by build_zonotope
+    #     self.a_opt = alpha_star
+    #     self.b_opt = gamma
+    #     self.t_opt = float(delta)
+
+    #     # ── Stats dict (mirrors fit_chebyshev layout) ────────────────────────────
+    #     self.mr_stats = {
+    #         'de_min_iters'     : de_min_nit,                      # Step 3a
+    #         'de_min_nfev'      : de_min_nfev,                     # Step 3a
+    #         'de_max_iters'     : de_max_nit,                      # Step 3b
+    #         'de_max_nfev'      : de_max_nfev,                     # Step 3b
+    #         'total_de_iters'   : de_min_nit + de_max_nit,
+    #         'total_f_evals'    : f_counter.count,                 # ← grand total
+    #     }
+
+    #     if verbose:
+    #         s = self.mr_stats
+    #         print(
+    #             f"\n[MinRange] ── Summary ──────────────────────────────\n"
+    #             f"[MinRange] DE (min) iters    : {s['de_min_iters']}\n"
+    #             f"[MinRange] DE (min) nfev     : {s['de_min_nfev']}\n"
+    #             f"[MinRange] DE (max) iters    : {s['de_max_iters']}\n"
+    #             f"[MinRange] DE (max) nfev     : {s['de_max_nfev']}\n"
+    #             f"[MinRange] Total DE iters    : {s['total_de_iters']}\n"
+    #             f"[MinRange] Total f(x) evals  : {s['total_f_evals']}\n"
+    #             f"[MinRange] ────────────────────────────────────────────"
+    #         )
+
+ 
+    #     return self
+
+
+
     def fit_min_range(
         self,
         solver: str     = None,
@@ -338,8 +431,8 @@ class AffineZonotope:
             z >=  cp.multiply(x1, alpha),
             z >= -cp.multiply(x1, alpha),
             z >= 0,
-            alpha >= d_min,
-            alpha <= d_max,
+            alpha >= np.maximum(d_min,np.zeros(dim)),
+            alpha <= np.maximum(d_max,np.zeros(dim))
         ]
 
         prob = cp.Problem(cp.Minimize(cp.sum(z)), lp_constraints)
@@ -354,8 +447,8 @@ class AffineZonotope:
         def g_scalar(x):
             return f_counter(x) - float(alpha_star @ x)
 
-        res_min = differential_evolution(g_scalar,           box, **de_kw)
-        res_max = differential_evolution(lambda x: -g_scalar(x), box, **de_kw)
+        # res_min = differential_evolution(g_scalar,           box, **de_kw)
+        # res_max = differential_evolution(lambda x: -g_scalar(x), box, **de_kw)
 
         # DE for minimum
         evals_before_de_min = f_counter.count
