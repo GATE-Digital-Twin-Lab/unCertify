@@ -32,7 +32,9 @@ class Interval:
                     non-degenerate interval, if degen=False. This option is
                     mostly here for debugging.
             precision - specify the rounding precision of the object.'''
-            
+        _right = right
+        _left = left
+        
         if right is None:        
             # 'Void' constructor
             if isinstance(left, Interval):
@@ -67,7 +69,11 @@ class Interval:
         self.leftval = left
         self.rightval = right
         self.precision = precision
-        self.__dp__ = dp
+        
+        self._left = _left
+        self._right = _right
+        self._degen = degen
+        self._dp = dp
         
     # TESTED CONSTURCTOR
     # def __init__(self, left, right=None, dp=None, degen=True):
@@ -105,12 +111,16 @@ class Interval:
         
     def __str__(self):
         self = outerBound(self)
-        return f"[{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}]"
-    
-    def __repr__(self):
-        self = outerBound(self)
+        # return f"[{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}]"
         return f"interval([{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}])"
     
+    def __repr__(self):
+        # '''Assuming Interval and not an alias was used at import!'''
+        self = outerBound(self)
+        # return f"Interval.I(left={self._left}, right={self._right}, "+\
+        #         f"degen={self._degen}, dp={self._dp}, precision={self.precision})"
+        return f"interval([{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}])"
+
     # Setters - old; unclear immediate value
     # def left(self, newleft=None):
     #     if newleft is None:
