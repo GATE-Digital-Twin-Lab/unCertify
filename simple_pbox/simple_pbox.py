@@ -23,7 +23,7 @@ round_left = lambda num, decp: np.floor(np.array(num) * 10**decp)/10**decp
 round_right = lambda num, decp: np.ceil(np.array(num) * 10**decp)/10**decp
  
 
-class pbox:
+class Pbox:
     def __init__(self, left:Union[list, tuple, np.ndarray]=None,
                        right:Union[list, np.ndarray]=None,
                        p_left:Union[list, np.ndarray]=None, #Heights - Should be one less than left
@@ -177,10 +177,10 @@ class pbox:
             
         h = ax.stairs(np.concatenate([self.p, [1]]), np.concatenate(
             [self.left[0], self.left.reshape(self.n_step), self.left[-1]]),
-                  baseline=None, color='r', linestyle=ls, linewidth=lw, label=label)
+                  baseline=None, color=cl, linestyle=ls, linewidth=lw, label=label)
         ax.stairs(np.concatenate([self.p, [1]]), np.concatenate(
            [self.right[0], self.right.reshape(self.n_step), self.right[-1]]),
-                  baseline=None, color='k', linestyle=ls, linewidth=lw)
+                  baseline=None, color=cr, linestyle=ls, linewidth=lw)
         
         ax.plot([self.left[0], self.right[0]],[0,0], color=cr, linestyle=ls, linewidth=lw) #Bottom horizontal line
         ax.plot([self.left[-1], self.right[-1]], [1,1], color=cr, linestyle=ls, linewidth=lw)
@@ -283,8 +283,8 @@ class pbox:
             if type(left) is not float or type(right) is not float:
                 raise(Exception('Unsupported type of interval provided.'))
         
-        l = round_right(self.ppf(left)[0][0], precision)
-        r = round_left(self.ppf(right)[0][1], precision)
+        l = round_left(self.ppf(left).leftval, precision)
+        r = round_right(self.ppf(right).rightval, precision)
         
         if r-l < 1e-8: return l
         
