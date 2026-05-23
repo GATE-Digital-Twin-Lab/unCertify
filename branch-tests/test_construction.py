@@ -1,4 +1,4 @@
-import simple_pbox as pb
+import simple_pbox as spb
 import numpy as np
 import pandas as pd
 import scipy.stats as sts
