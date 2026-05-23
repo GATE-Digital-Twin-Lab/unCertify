@@ -19,7 +19,20 @@ PREC = 4 #Number of decimal places rounded to
 EPS = 1e-16 #Proxy machine precision
 
 class Interval:
-    def __init__(self, left, right=None, dp=None, degen=True, precision=PREC):
+    def __init__(self, left, right=None, degen=True, dp=None, precision=PREC):
+        ''' left  - the left bound of the interval or Number to construct the
+                    interval from.
+            right - the right bound of the interval; if both left and right are
+                    specified other inputs are ignored.
+            degen - boolean to force the constructor to a dengenerate interval
+                    representing a precise number when only left is passed
+                    (True); if False, left is interpreted by the precision it
+                    is specified with.
+            dp    - number of decimal places to take for the construction of a 
+                    non-degenerate interval, if degen=False. This option is
+                    mostly here for debugging.
+            precision - specify the rounding precision of the object.'''
+            
         if right is None:        
             # 'Void' constructor
             if isinstance(left, Interval):
@@ -54,6 +67,7 @@ class Interval:
         self.leftval = left
         self.rightval = right
         self.precision = precision
+        self.__dp__ = dp
         
     # TESTED CONSTURCTOR
     # def __init__(self, left, right=None, dp=None, degen=True):
