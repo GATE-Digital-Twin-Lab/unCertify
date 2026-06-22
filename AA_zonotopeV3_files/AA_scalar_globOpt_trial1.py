@@ -198,6 +198,24 @@ arctanVal = th1.arctan(cheb=True)
 print("arctanVal = ", arctanVal)
 print("arctanVal = ", arctanVal.interval)
 
+Theta = AffineArray.from_intervals([
+    (-1.0, 1.0),
+    (-0.2, -0.8),
+    (-0.4, 0.2)
+])
+
+th1 = Theta[0]
+th2 = Theta[1]
+th3 = Theta[2]
+
+powVal = th3.pow(-3)
+print("powVal = ", powVal)
+print("powVal = ", powVal.interval)
+
+powVal = th3.pow(-3, cheb=True)
+print("powVal = ", powVal)
+print("powVal = ", powVal.interval)
+
 
 
 

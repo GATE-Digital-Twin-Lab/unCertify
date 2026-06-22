@@ -1783,24 +1783,67 @@ class AffineScalar:
 
         return ((-self).arctan(cheb=cheb) + np.pi/2)
     
+    @staticmethod
+    def _real_power(x, n, tol=1e-12):
+
+        # Integer exponent
+        if abs(n - round(n)) < tol:
+            return np.power(x, int(round(n)))
+
+        # Reciprocal integer?
+        m = round(abs(1.0/n))
+
+        if abs(abs(n) - 1.0/m) < tol:
+
+            # Odd reciprocal
+            if m % 2 == 1:
+
+                y = np.sign(x) * np.abs(x)**(1.0/m)
+
+                if n > 0:
+                    return y
+                else:
+                    return 1.0/y
+
+            # Even reciprocal
+            else:
+                return np.power(x, n)
+
+        return np.power(x, n)
+    
     def pow(self, n: float, cheb=False):
 
         a, b = self.interval
 
-        fa = np.pow(a,n)
-        fb = np.pow(b,n)
+        # fa = np.pow(a,n)
+        # fb = np.pow(b,n)
 
-        p = (fb-fa)/(b-a)
+        fa = self._real_power(a, n)
+        fb = self._real_power(b, n)
 
         tol = 1e-12
 
-        if n == 1:
-            alpha = 1
-            gamma = 0
-            delta = 0
+        if abs(b - a) < tol:
+
+            return self._affine_constructor(
+                fa,              
+                n*self._real_power(a, n-1),
+                0.0
+            )
+        
+
+        p = (fb-fa)/(b-a)
+
+
+        if abs(n - 1.0) < tol:
+            return self._affine_constructor(
+                0.0,   # gamma
+                1.0,   # alpha
+                0.0    # delta
+            )
  
 
-        elif n % 2 == 0 and n > 1:
+        elif round(n) % 2 == 0 and n > 1:
 
             # --------------------------------------------------
             # Chebyshev / Lemma 3
@@ -1812,7 +1855,9 @@ class AffineScalar:
 
                 xs = (alpha/n)**(1.0/(n-1))
 
-                fxs = xs**n
+                # fxs = xs**n
+
+                fxs = self._real_power(xs, n)
 
                 gamma = (
                     fa
@@ -1834,32 +1879,36 @@ class AffineScalar:
 
             else:
 
+                fmax = max(fa,fb)
+                fmin = min(fa,fb)
+
                 if a <= 0 <= b:
 
                     alpha = 0.0
+                    fmin = 0.0
 
                 elif b <= 0:
                     alpha = max(
-                        n*a**(n-1),
-                        n*b**(n-1)
+                        n*self._real_power(a, n-1),
+                        n*self._real_power(b, n-1)
                     )
                 else:
                     alpha = min(
-                        n*a**(n-1),
-                        n*b**(n-1)
+                        n*self._real_power(a, n-1),
+                        n*self._real_power(b, n-1)
                     )
 
                 gamma = 0.5*(
-                    fa + fb
+                    fmax + fmin
                     - alpha*(a+b)
                 )
 
                 delta0 = 0.5*abs(
-                    fb-fa
+                    fmax-fmin
                     - alpha*(b-a)
                 )
 
-        elif n % 2 == 1 and n > 1:
+        elif round(n) % 2 == 1 and n > 1:
 
             # --------------------------------------------------
             # Chebyshev / Lemma 3
@@ -1890,13 +1939,13 @@ class AffineScalar:
                 
                     gamma = (
                         fa
-                        + xi**n
+                        + self._real_power(xi, n)
                         - alpha*(a + xi)
                     )/2
 
                     delta0 = abs(
                         (
-                            xi**n
+                            self._real_power(xi, n)
                             - fa
                             - alpha*(xi - a)
                         )/2
@@ -1908,7 +1957,7 @@ class AffineScalar:
                     gamma = 0.0
 
                     delta0 = abs(
-                        xs**n
+                        self._real_power(xs, n)
                         - alpha*xs
                     )
 
@@ -1924,15 +1973,15 @@ class AffineScalar:
                     if inside1 and inside2:
 
                         gamma = (
-                            xi1**n
-                            + xi2**n
+                            self._real_power(xi1, n)
+                            + self._real_power(xi2, n)
                             - alpha*(xi1 + xi2)
                         )/2
 
                         delta0 = abs(
                             (
-                                xi2**n
-                                - xi1**n
+                                self._real_power(xi2, n)
+                                - self._real_power(xi1, n)
                                 - alpha*(xi2 - xi1)
                             )/2
                         )
@@ -1943,13 +1992,13 @@ class AffineScalar:
 
                         gamma = (
                             fa
-                            + xi**n
+                            + self._real_power(xi, n)
                             - alpha*(a + xi)
                         )/2
 
                         delta0 = abs(
                             (
-                                xi**n
+                                self._real_power(xi, n)
                                 - fa
                                 - alpha*(xi - a)
                             )/2
@@ -1972,8 +2021,8 @@ class AffineScalar:
             
                 else:
                     alpha = min(
-                        n*a**(n-1),
-                        n*b**(n-1)
+                        n*self._real_power(a, n-1),
+                        n*self._real_power(b, n-1)
                     )
 
                 gamma = 0.5*(
@@ -1988,7 +2037,12 @@ class AffineScalar:
 
         elif 0 < n < 1:
 
-            if (1/n)%2 == 0:
+            m = round(1/n)
+
+            if abs(m - 1/n) > tol:
+                raise RuntimeError("Exponent is not ±1/k.")
+
+            if m % 2 == 0:
 
                 if a < 0:
                     raise RuntimeError(
@@ -2014,13 +2068,13 @@ class AffineScalar:
 
                     gamma = (
                         fa
-                        + xi**n
+                        + self._real_power(xi, n)
                         - alpha*(a + xi)
                     )/2
 
                     delta0 = abs(
                         (
-                            xi**n
+                            self._real_power(xi, n)
                             - fa
                             - alpha*(xi - a)
                         )/2
@@ -2032,7 +2086,7 @@ class AffineScalar:
 
                 else:
 
-                    alpha = n*b**(n-1)
+                    alpha = n*self._real_power(b, n-1)
 
                     gamma = 0.5*(
                         fa + fb
@@ -2044,7 +2098,7 @@ class AffineScalar:
                         - alpha*(b-a)
                     )
 
-            if (1/n)%2 == 1:
+            elif m % 2 == 1:
                 
                 # --------------------------------------------------
                 # Chebyshev / Lemma 3
@@ -2056,7 +2110,7 @@ class AffineScalar:
 
                     xs = (alpha/n)**(1.0/(n-1))
 
-                    if not (a <= xi <= b):
+                    if not (a <= xs <= b):
                         raise RuntimeError(
                             "Unexpected stationary point."
                         )
@@ -2079,13 +2133,13 @@ class AffineScalar:
                 
                         gamma = (
                             fa
-                            + xi**n
+                            + self._real_power(xi, n)
                             - alpha*(a + xi)
                         )/2
 
                         delta0 = abs(
                             (
-                                xi**n
+                                self._real_power(xi, n)
                                 - fa
                                 - alpha*(xi - a)
                             )/2
@@ -2097,7 +2151,7 @@ class AffineScalar:
                         gamma = 0.0
 
                         delta0 = abs(
-                            xs**n
+                            self._real_power(xs, n)
                             - alpha*xs
                         )
 
@@ -2113,15 +2167,15 @@ class AffineScalar:
                         if inside1 and inside2:
 
                             gamma = (
-                                xi1**n
-                                + xi2**n
+                                self._real_power(xi1, n)
+                                + self._real_power(xi2, n)
                                 - alpha*(xi1 + xi2)
                             )/2
 
                             delta0 = abs(
                                 (
-                                    xi2**n
-                                    - xi1**n
+                                    self._real_power(xi2, n)
+                                    - self._real_power(xi1, n)
                                     - alpha*(xi2 - xi1)
                                 )/2
                             )
@@ -2132,13 +2186,13 @@ class AffineScalar:
 
                             gamma = (
                                 fa
-                                + xi**n
+                                + self._real_power(xi, n)
                                 - alpha*(a + xi)
                             )/2
 
                             delta0 = abs(
                                 (
-                                    xi**n
+                                    self._real_power(xi, n)
                                     - fa
                                     - alpha*(xi - a)
                                 )/2
@@ -2157,11 +2211,15 @@ class AffineScalar:
 
                     if a >=0:
 
-                        alpha = n*b**(n-1)
+                        # alpha = n*b**(n-1)
+
+                        alpha = n/abs(b)**(1.0-n)
 
                     elif b <= 0:
 
-                        alpha = n*a**(n-1)
+                        # alpha = n*a**(n-1)
+
+                        alpha = n/abs(a)**(1.0-n)
 
                     else:
                     # a < 0 < b
@@ -2176,15 +2234,15 @@ class AffineScalar:
                             n/abs(b)**(1-n)
                         )
 
-                        gamma = 0.5*(
-                            fa + fb
-                            - alpha*(a+b)
-                        )
+                    gamma = 0.5*(
+                        fa + fb
+                        - alpha*(a+b)
+                    )
 
-                        delta0 = 0.5*abs(
-                            fb-fa
-                            - alpha*(b-a)
-                        )
+                    delta0 = 0.5*abs(
+                        fb-fa
+                        - alpha*(b-a)
+                    )
         #----------------------------------
         # n < 0 
         #----------------------------------
@@ -2216,13 +2274,13 @@ class AffineScalar:
 
                     gamma = (
                         fa
-                        + xi**n
+                        + self._real_power(xi, n)
                         - alpha*(a + xi)
                     )/2
 
                     delta0 = abs(
                         (
-                            xi**n
+                            self._real_power(xi, n)
                             - fa
                             - alpha*(xi - a)
                         )/2
@@ -2235,10 +2293,10 @@ class AffineScalar:
             else:
 
                 if a >=0:
-                    alpha = n*b**(n-1)
+                    alpha = n*self._real_power(b, n-1)
 
                 else:
-                    alpha = n*a**(n-1)
+                    alpha = n*self._real_power(a, n-1)
 
                 gamma = 0.5*(
                     fa + fb
