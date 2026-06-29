@@ -198,6 +198,14 @@ arctanVal = th1.arctan(cheb=True)
 print("arctanVal = ", arctanVal)
 print("arctanVal = ", arctanVal.interval)
 
+arccotVal = th1.arccot()
+print("arccotVal = ", arccotVal)
+print("arccotVal = ", arccotVal.interval)
+
+arccotVal = th1.arccot(cheb=True)
+print("arccotVal = ", arccotVal)
+print("arccotVal = ", arccotVal.interval)
+
 Theta = AffineArray.from_intervals([
     (-1.0, 1.0),
     (-0.2, -0.8),

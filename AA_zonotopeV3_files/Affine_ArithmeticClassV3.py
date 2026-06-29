@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from itertools import product
 
 sig_dig = 12  # global significant digits for outward rounding
 
@@ -474,12 +475,19 @@ class AffineScalar:
         a, b = self.interval
 
         if a < 0:
-            raise ValueError(
-                f"sqrt undefined for interval [{a}, {b}] "
-                "because it contains negative values."
-            ) 
+            # raise ValueError(
+            #     f"sqrt undefined for interval [{a}, {b}] "
+            #     "because it contains negative values."
+            # ) 
 
-        fa = np.sqrt(a)
+            fa = 0
+            a = 0
+
+        else:
+
+            fa = np.sqrt(a)
+        
+           
         fb = np.sqrt(b)
 
         # ---------- Chebyshev approximation ----------
@@ -2364,7 +2372,48 @@ class AffineArray:
             float(ub)
         ]
 
+    def split_interval(self, splits_per_dim):
+
+        lower = []
+        upper = []
+
+        for x in self:
+            a, b = x.interval
+            lower.append(a)
+            upper.append(b)
+        
+        dim_intervals = []
+
+        for d in range(len(lower)):
+
+            grid = np.linspace(
+                lower[d],
+                upper[d],
+                splits_per_dim[d] + 1
+            )
+
+            dim_intervals.append([
+                (grid[i], grid[i+1])
+                for i in range(splits_per_dim[d])
+            ])
+
+        sub_arrays = []
+
+        for combo in product(*dim_intervals):
+
+            sub_arrays.append(
+                AffineArray.from_intervals(combo)
+            )
+
+        return sub_arrays
+
+
     def __getitem__(self, idx):
+
+        # print("getitem:", idx)
+
+        if idx < 0 or idx >= len(self.x0):
+            raise IndexError
 
         return AffineScalar(self, idx)
 
