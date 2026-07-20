@@ -381,7 +381,7 @@ def inside(a, b):
 def overlap(a, b):
     ''' This function *measures* overlap;  it doesn't test for it.
      If the intervals just touch, overlap will return zero!'''
-    return np.maximum(imp(a,b).width(), 0)
+    return np.maximum(imposition(a,b).width(), 0)
 
 def sqrt(a, impose_range=False, preserve_sign=False):
     if impose_range: a = cut(a, 0, 'left')
