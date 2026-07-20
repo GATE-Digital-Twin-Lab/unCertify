@@ -42,7 +42,7 @@ class Pbox:
         if left is not None: #For now assume that if left is None everything else will be None too
             if right is None: #We can still have all four types of numbers
                 # if hasattr(left, '__iter__'): #No scalars
-                    left = np.array(left)
+                    left = np.array(left) #Also take care of row-wise or column-wise arrays
                     r,c = _get_array_dims_(left)
                     
                     if 0 <= r <= 1 and c == 0: #Scalar
@@ -51,7 +51,7 @@ class Pbox:
                     elif (r,c) == (2,0): #Interval not currently accepting interval constructors 
                         right = [left[1]] 
                         left = [left[0]]
-                    elif r > 2 and c == 0: #Distribution
+                    elif r > 2 and (c == 0 or c == 1): #Distribution - currently to get a distro with one step (two data points) pass both bounds the same
                         right = left #Make sure no simulateneous modifications are happening
                     elif c == 2:  #pbox, incl. interval looking ones
                         if isinstance(left[0], ival.Interval):
@@ -86,7 +86,7 @@ class Pbox:
                         "but have also supplied value for p_right. "
                         "This is conflicting behaviour. Specify one or the other."))
                 if verbatim_prob:
-                    n_step_r = pbox._verbatim_prob_calc_(p_right)
+                    n_step_r = Pbox._verbatim_prob_calc_(p_right)
                 else:
                     p_right = round_right(p_right, decp)
                     
@@ -95,7 +95,7 @@ class Pbox:
                 p_left = round_left(np.array([i/len(left) for i in range(1,len(left))]), decp) #np.arrange doesn't contain representation error well
             else:
                 if verbatim_prob:
-                    n_step_l = pbox._verbatim_prob_calc_(p_left)
+                    n_step_l = Pbox._verbatim_prob_calc_(p_left)
                     n_step = max(n_step_l, n_step_r)
                 else:
                     p_left = round_left(p_left, decp)
@@ -122,8 +122,8 @@ class Pbox:
             # =============== THIS IS ALL ABOUT THE ASSIGNMENTS ===================
             left = x_left
             right = x_right
-            rng = pbox.get_range(self, left, right)
-            width = pbox.get_width(self, left, right)
+            rng = Pbox.get_range(self, left, right)
+            width = Pbox.get_width(self, left, right)
         else:
             rng = ival.I(-np.inf, np.inf)
             width = np.inf
@@ -233,7 +233,7 @@ class Pbox:
             p_condense = np.arange(0, 1, 1/STEPS)
         xq = condense_parts(x_o, p_o, p_condense)
         
-        return pbox(xq, p_left=p_condense)
+        return Pbox(xq, p_left=p_condense)
     
     def ppf(self, p:np.ndarray): #This should return an interval
         if type(p) is float or type(p) is np.float64: p = np.array([p]) #Accommodate single quantiles
@@ -300,7 +300,22 @@ class Pbox:
  
     
 # ================================ FUNCTIONS ==================================
-
+def areametric(num1, num2):
+    assert num1.n_step == num2.n_step
+    
+    #This will not sense 0 MFU if one response partially overlaps the other
+    d1 = (num1.left - num2.left).mean()
+    d2 = (num1.left - num2.right).mean()
+    d3 = (num1.right - num2.left).mean()
+    d4 = (num1.right - num2.right).mean()
+    
+    min_d = np.min([d1,d2,d3,d4])
+    max_d = np.max([d1,d2,d3,d4])
+    
+    if imp([num1, num2]): min_d = 0
+    
+    return ival.I(min_d, max_d)
+    
 # ================================ ARITHMETIC =================================
 def mul(self, other, dependency="f"):
     """Multiplication of uncertain numbers with the defined dependency"""
@@ -321,14 +336,14 @@ def frechet_pbox_mul(x, y):
     # else:  # both positive
     return classic_frechet_pbox(x, y, operator.mul)
        
-def classic_frechet_pbox(x, y, op) -> pbox:
+def classic_frechet_pbox(x, y, op) -> Pbox:
     """this corresponds to the Frank, Nelson and Sklar Frechet bounds implementation"""
     left, right = frechet_op(x, y, op)
-    p = pbox(left=left, right=right) #No moments here: TO DO
+    p = Pbox(left=left, right=right) #No moments here: TO DO
     return p
 
    
-def frechet_op(x: pbox, y: pbox, op=operator.add):
+def frechet_op(x: Pbox, y: Pbox, op=operator.add):
     """Frechet operation on two pboxes
     note:
         this corresponds to the Frank, Nelson and Sklar Frechet bounds implementation
@@ -442,7 +457,7 @@ def imp(pboxes):
     if any(left_imp > right_imp):
         res = None #Conisider making this a special p-box
     else:
-        res = pbox(left_imp, right_imp, n_step=n_step)
+        res = Pbox(left_imp, right_imp, n_step=n_step)
     return res
      
 def distro(distro_name, loc, scale, p, trunc=None):
@@ -478,7 +493,7 @@ def distro(distro_name, loc, scale, p, trunc=None):
     # left = dist_obj.ppf(p[:n-1])
     # right = dist_obj.ppf(p[1:])
     
-    res = pbox(left, right, p, p, verbatim_prob=True)
+    res = Pbox(left, right, p, p, verbatim_prob=True)
     
     return res
 
@@ -494,7 +509,7 @@ def mmms(minimum, maximum, mean:ival.I, stddev:ival.I):
     ml = (m.leftval - minimum) / rng; sl = s.leftval / rng
     mr = (m.rightval - minimum) / rng; sr = s.rightval / rng
 
-    z = pbox()
+    z = Pbox()
     n = z.n_step
     
     u = np.full((n,1), np.nan) #This is upper probably => left quantile bound
@@ -533,7 +548,7 @@ def mmms(minimum, maximum, mean:ival.I, stddev:ival.I):
         else: x6 = mr / (one - p)
         d[i] = np.min([x2, x3, x6, one]) * rng + minimum;
     
-    z = pbox(left=u,
+    z = Pbox(left=u,
              right=d,
              mean=m,
              var=s**2) #This is a necessary waste because there are no getter and setter methods
