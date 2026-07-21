@@ -1,12 +1,35 @@
 import numpy as np
 import math
+import warnings
+
 from itertools import product
+# from Interval import Interval
+from fractions import Fraction
 
 sig_dig = 12  # global significant digits for outward rounding
 
 class AffineScalar:
 
-    def __init__(self, parent=None, idx=None, x0=None, xi=None):
+    # def __init__(self, parent=None, idx=None, x0=None, xi=None):
+
+    #     # view mode
+    #     if parent is not None:
+
+    #         self.parent = parent
+    #         self.idx = idx
+
+    #         self._standalone = False
+
+    #     # standalone mode
+    #     else:
+
+    #         self._x0 = float(x0)
+
+    #         self._xi = np.asarray(xi, dtype=float)
+
+    #         self._standalone = True
+
+    def __init__(self, parent=None, idx=None, x0=None, xi=None, delta=None):
 
         # view mode
         if parent is not None:
@@ -21,7 +44,14 @@ class AffineScalar:
 
             self._x0 = float(x0)
 
+            if xi is None:
+                xi = []
+
+            if delta is None:
+                delta = []
+
             self._xi = np.asarray(xi, dtype=float)
+            self._delta = np.asarray(delta, dtype=float)
 
             self._standalone = True
 
@@ -60,20 +90,51 @@ class AffineScalar:
             return self._x0
 
         return self.parent.x0[self.idx]
-    
+
+    # @property
+    # def xi(self):
+
+    #     if self._standalone:
+
+    #         return self._xi
+
+    #     return self.parent.E[self.idx]
+
     @property
     def xi(self):
 
         if self._standalone:
-
             return self._xi
 
-        return self.parent.E[self.idx]
+        return self.parent.Xi[self.idx]
+
+
+    @property
+    def delta(self):
+
+        if self._standalone:
+            return self._delta
+
+        return self.parent.Delta[self.idx]
+
+    # @property
+    # def interval(self):
+
+    #     r = np.sum(np.abs(self.xi))
+
+    #     return (
+    #         self.x0 - r,
+    #         self.x0 + r
+    #     )
 
     @property
     def interval(self):
 
-        r = np.sum(np.abs(self.xi))
+        r = (
+            np.sum(np.abs(self.xi))
+            +
+            np.sum(np.abs(self.delta))
+        )
 
         return (
             self.x0 - r,
@@ -102,6 +163,38 @@ class AffineScalar:
             )
 
         return xi1, xi2
+    
+    @staticmethod
+    def _merge_delta(delta1, delta2):
+
+        return np.concatenate((delta1, delta2))
+
+    # def __add__(self, other):
+
+    #     # affine + affine
+    #     if isinstance(other, self.__class__):
+
+    #         xi1, xi2 = self._align(
+    #             self.xi,
+    #             other.xi
+    #         )
+
+    #         return AffineScalar(
+    #             x0 = self.x0 + other.x0,
+    #             xi = xi1 + xi2
+    #         )
+
+    #     # affine + scalar
+    #     elif isinstance(other, (int, float)):
+
+    #         return AffineScalar(
+    #             x0 = self.x0 + other,
+    #             xi = self.xi.copy()
+    #         )
+
+    #     raise TypeError(
+    #         "other must be AffineScalar, int, or float"
+    #     )
 
     def __add__(self, other):
 
@@ -114,32 +207,122 @@ class AffineScalar:
             )
 
             return AffineScalar(
-                x0 = self.x0 + other.x0,
-                xi = xi1 + xi2
+                x0=self.x0 + other.x0,
+                xi=xi1 + xi2,
+                delta = self._merge_delta(
+                    self.delta,
+                    other.delta
+                )
             )
 
         # affine + scalar
         elif isinstance(other, (int, float)):
 
             return AffineScalar(
-                x0 = self.x0 + other,
-                xi = self.xi.copy()
+                x0=self.x0 + other,
+                xi=self.xi.copy(),
+                delta=self.delta.copy()
             )
 
         raise TypeError(
             "other must be AffineScalar, int, or float"
         )
-    
+
+
+    # def __mul__(self, other):
+
+    #     # affine * affine
+    #     if isinstance(other, self.__class__):
+
+    #         # ---------- align dimensions ----------
+
+    #         xi1, xi2 = self._align(
+    #             self.xi,
+    #             other.xi
+    #         )
+
+    #         # ---------- affine part ----------
+
+    #         x0_new = self.x0 * other.x0
+
+    #         xi_aff = (
+    #             self.x0 * xi2
+    #             +
+    #             other.x0 * xi1
+    #         )
+
+    #         # ---------- improved error term (26) ----------
+
+    #         v = xi1 * xi2
+
+    #         v_pos = np.maximum(v, 0.0)
+
+    #         v_neg = np.maximum(-v, 0.0)
+
+    #         diag_term = max(
+    #             np.sum(v_pos),
+    #             np.sum(v_neg)
+    #         )
+
+    #         offdiag = 0.0
+
+    #         n = len(xi1)
+
+    #         for i in range(n):
+
+    #             for j in range(i + 1, n):
+
+    #                 offdiag += abs(
+    #                     xi1[i] * xi2[j]
+    #                     +
+    #                     xi1[j] * xi2[i]
+    #                 )
+
+    #         e0 = diag_term + offdiag
+
+    #         _, e = self._outer_bound(0.0, float(e0))
+
+    #         # ---------- append fresh noise symbol ----------
+
+    #         xi_new = np.append(
+    #             xi_aff,
+    #             e
+    #         )
+
+    #         return AffineScalar(
+    #             x0 = x0_new,
+    #             xi = xi_new
+    #         )
+
+    #     # affine * scalar
+    #     elif isinstance(other, (int, float)):
+
+    #         return AffineScalar(
+    #             x0 = self.x0 * other,
+    #             xi = self.xi * other
+    #         )
+
+    #     raise TypeError(
+    #         "other must be AffineScalar, int, or float"
+    #     )
+
     def __mul__(self, other):
 
         # affine * affine
         if isinstance(other, self.__class__):
 
-            # ---------- align dimensions ----------
+            # ---------- align propagated symbols ----------
 
             xi1, xi2 = self._align(
                 self.xi,
                 other.xi
+            )
+
+            # ---------- align remainder symbols ----------
+
+            delta1, delta2 = self._align(
+                self.delta,
+                other.delta
             )
 
             # ---------- affine part ----------
@@ -152,9 +335,30 @@ class AffineScalar:
                 other.x0 * xi1
             )
 
+            delta_aff = (
+                self.x0 * delta2
+                +
+                other.x0 * delta1
+            )
+
+            # ---------- combine all independent symbols ----------
+
+            coeff1 = np.concatenate(
+                (xi1, delta1)
+            )
+
+            coeff2 = np.concatenate(
+                (xi2, delta2)
+            )
+
+            coeff1, coeff2 = self._align(
+                coeff1,
+                coeff2
+            )
+
             # ---------- improved error term (26) ----------
 
-            v = xi1 * xi2
+            v = coeff1 * coeff2
 
             v_pos = np.maximum(v, 0.0)
 
@@ -167,40 +371,45 @@ class AffineScalar:
 
             offdiag = 0.0
 
-            n = len(xi1)
+            n = len(coeff1)
 
             for i in range(n):
 
                 for j in range(i + 1, n):
 
                     offdiag += abs(
-                        xi1[i] * xi2[j]
+                        coeff1[i] * coeff2[j]
                         +
-                        xi1[j] * xi2[i]
+                        coeff1[j] * coeff2[i]
                     )
 
             e0 = diag_term + offdiag
 
-            _, e = self._outer_bound(0.0, float(e0))
+            _, e = self._outer_bound(
+                0.0,
+                float(e0)
+            )
 
-            # ---------- append fresh noise symbol ----------
+            # ---------- append fresh remainder symbol ----------
 
-            xi_new = np.append(
-                xi_aff,
+            delta_new = np.append(
+                delta_aff,
                 e
             )
 
             return AffineScalar(
-                x0 = x0_new,
-                xi = xi_new
+                x0=x0_new,
+                xi=xi_aff,
+                delta=delta_new
             )
 
         # affine * scalar
         elif isinstance(other, (int, float)):
 
             return AffineScalar(
-                x0 = self.x0 * other,
-                xi = self.xi * other
+                x0=self.x0 * other,
+                xi=self.xi * other,
+                delta=self.delta * other
             )
 
         raise TypeError(
@@ -215,7 +424,8 @@ class AffineScalar:
 
         return AffineScalar(
             x0 = -self.x0,
-            xi = -self.xi
+            xi = -self.xi,
+            delta= -self.delta
         )
     
     def __sub__(self, other):
@@ -230,30 +440,101 @@ class AffineScalar:
 
         return self + other
 
+    # def _affine_constructor(
+    #     self,
+    #     gamma,
+    #     alpha,
+    #     delta,
+    #     interval = None
+    #     ):
+            
+    #     if interval is None:
+
+    #         x0_new = alpha * self.x0 + gamma
+
+    #         xi_new = alpha * self.xi
+
+    #         xi_new = np.append(
+    #             xi_new,
+    #             delta
+    #         )
+
+    #         y = AffineScalar(x0=x0_new, xi=xi_new)
+
+    #     else:
+
+    #         a , b = interval
+
+    #         x0_new = alpha * 0.5 * (a + b) + gamma
+
+    #         xi_new = alpha * 0.5 * (b - a)
+
+    #         xi_new = np.append(
+    #             xi_new,
+    #             delta
+    #         )
+
+    #         y = AffineScalar(x0=x0_new, xi=xi_new)            
+
+    #     return y
+
     def _affine_constructor(
         self,
         gamma,
         alpha,
-        delta
+        delta,
+        center_shift=0.0,
+        radius_scale=1.0,
+        interval=None
         ):
+            
+        if interval is None:
 
-        x0_new = alpha * self.x0 + gamma
+            x0_new = alpha * (self.x0 + center_shift) + gamma
 
-        xi_new = alpha * self.xi
+            xi_new = alpha * radius_scale * self.xi
 
-        xi_new = np.append(
-            xi_new,
-            delta
-        )
+            delta_new = alpha * radius_scale * self.delta
 
-        return AffineScalar(
-            x0=x0_new,
-            xi=xi_new
-        )
+            delta_new = np.append(
+                delta_new,
+                delta
+            )
+
+            y = AffineScalar(
+                x0=x0_new,
+                xi=xi_new,
+                delta=delta_new
+            )
+
+        else:
+
+            a , b = interval
+
+            x0_new = alpha * 0.5 * (a + b) + gamma
+
+            xi_new = np.array([alpha * 0.5 * (b - a)])
+
+            y = AffineScalar(x0=x0_new, xi=xi_new, delta=[delta])            
+
+        return y
     
     def inv(self):
 
         lb, ub = self.interval
+
+        a = lb
+        b = ub
+
+        if np.isclose(a, b):
+            return AffineScalar(
+                x0=1.0/a,
+                xi=np.zeros_like(self.xi),
+                delta=np.zeros(0)
+            )
+
+        center_shift = 0.0
+        radius_scale = 1.0
 
         if lb <= 0 <= ub:
 
@@ -261,20 +542,22 @@ class AffineScalar:
                 "Interval contains zero"
             )
 
-        a = min(abs(lb), abs(ub))
-        b = max(abs(lb), abs(ub))
+        else:
 
-        alpha = -1.0 / b**2
+            a = min(abs(lb), abs(ub))
+            b = max(abs(lb), abs(ub))
 
-        U = 1.0/a - alpha*a
-        L = 2.0/b
+            alpha = -1.0 / b**2
 
-        gamma = 0.5*(L + U)
+            U = 1.0/a - alpha*a
+            L = 2.0/b
 
-        if lb < 0:
-            gamma = -gamma
+            gamma = 0.5*(L + U)
 
-        delta0 = 0.5*(U - L)
+            if lb < 0:
+                gamma = -gamma
+
+            delta0 = 0.5*(U - L)
 
         _, delta = self._outer_bound(0.0, float(delta0))
 
@@ -283,6 +566,83 @@ class AffineScalar:
             alpha,
             delta
         )
+
+    # def inv(self, warn=False):
+
+    #     lb, ub = self.interval
+
+    #     if np.isclose(lb, ub):
+    #         return AffineScalar(
+    #             x0=1.0/lb,
+    #             xi=np.zeros_like(self.xi),
+    #             delta=np.zeros(0)
+    #         )
+        
+    #     center_shift = 0.0
+    #     radius_scale = 1.0
+
+
+    #     if lb <= 0 <= ub:
+
+    #         eps = 1e-12
+
+    #         if warn:
+
+    #             if warn:
+    #                 warnings.warn(
+    #                     f"inv(): lower bound {lb} is non-positive; "
+    #                     f"clipping interval to [{eps}, {ub}] or [{lb}, {-eps}]",
+    #                     RuntimeWarning,
+    #                     stacklevel=2
+    #                 )
+
+    #         if np.abs(lb) > np.abs(ub):
+
+    #             new_a = lb
+    #             new_b = -eps
+
+    #         else:
+
+    #             new_a = eps
+    #             new_b = ub
+
+    #         old_center = self.x0
+    #         old_radius = np.sum(np.abs(self.xi)) + np.sum(np.abs(self.delta))
+
+    #         new_center = 0.5 * (new_a + new_b)
+    #         new_radius = 0.5 * (new_b - new_a)
+
+    #         center_shift = new_center - old_center
+    #         radius_scale = new_radius / old_radius
+
+    #         lb = new_a
+    #         ub = new_b
+
+
+    #     a = min(abs(lb), abs(ub))
+    #     b = max(abs(lb), abs(ub))
+
+    #     alpha = -1.0 / b**2
+
+    #     U = 1.0/a - alpha*a
+    #     L = 2.0/b
+
+    #     gamma = 0.5*(L + U)
+
+    #     if lb < 0:
+    #         gamma = -gamma
+
+    #     delta0 = 0.5*(U - L)
+
+    #     _, delta = self._outer_bound(0.0, float(delta0))
+
+    #     return self._affine_constructor(
+    #         gamma,
+    #         alpha,
+    #         delta,
+    #         center_shift=center_shift,
+    #         radius_scale=radius_scale
+    #     )
     
     def __truediv__(self, other):
 
@@ -369,28 +729,69 @@ class AffineScalar:
             delta
         )
     
-    def log(self, cheb=False):
+    def log(self, cheb=False, warn=False):
 
         a, b = self.interval
 
-        lna = np.log(a)
-        lnb = np.log(b)
+        if b<=0:
+            raise ValueError(
+                f"log undefined for interval [{a}, {b}] "   
+            )
+        
+        if np.isclose(a, b):
+            return AffineScalar(
+                x0=np.log(a),
+                xi=np.zeros_like(self.xi),
+                delta=np.zeros(0)
+            )
+
+        center_shift = 0.0
+        radius_scale = 1.0
+
+        if a <= 0:
+
+            new_a = 1e-12
+            
+            if warn:
+                warnings.warn(
+                    f"log(): lower bound {a} is non-positive; "
+                    f"clipping interval to [{new_a}, {b}]",
+                    RuntimeWarning,
+                    stacklevel=2
+                )
+
+            old_center = self.x0
+            old_radius = np.sum(np.abs(self.xi)) + np.sum(np.abs(self.delta))
+
+            new_b = b
+
+            new_center = 0.5 * (new_a + new_b)
+            new_radius = 0.5 * (new_b - new_a)
+
+            center_shift = new_center - old_center
+            radius_scale = new_radius / old_radius
+
+            a = new_a
+            b = new_b
+
+        fa = np.log(a)
+        fb = np.log(b)
 
         # ---------- Chebyshev approximation ----------
         if cheb:
 
-            alpha = (lnb - lna)/(b - a)
+            alpha = (fb - fa)/(b - a)
             xs = 1/alpha
 
             gamma = 0.5 * (
-                lna
+                fa
                 + np.log(xs)
                 - alpha*(a + xs)
             )
 
             delta0 = 0.5 * np.abs(
                 np.log(xs)
-                - lna
+                - fa
                 - alpha*(xs - a)
             )
 
@@ -400,12 +801,12 @@ class AffineScalar:
             alpha = 1/b
 
             gamma = 0.5 * (
-                lna + lnb
+                fa + fb
                 - alpha*(a + b)
             )
 
             delta0 = 0.5 * np.abs(
-                lnb - lna
+                fb - fa
                 - alpha*(b - a)
             ) 
 
@@ -414,7 +815,9 @@ class AffineScalar:
         return self._affine_constructor(
             gamma,
             alpha,
-            delta
+            delta,
+            center_shift=center_shift,
+            radius_scale=radius_scale
         )
     
     def abs(self, cheb=False):
@@ -452,6 +855,7 @@ class AffineScalar:
                     - fa
                     - alpha*(xs - a)
                 )
+
             else: 
 
                 alpha = 0
@@ -469,25 +873,153 @@ class AffineScalar:
             alpha,
             delta
         )
+
+    # def abs(self, cheb=False):
+
+    #     a, b = self.interval
+
+    #     if np.isclose(a, b):
+    #         return AffineScalar(
+    #             x0=np.abs(a),
+    #             xi=np.zeros_like(self.xi),
+    #             delta=np.zeros(0)
+    #         )
+        
+    #     fa = np.abs(a)
+    #     fb = np.abs(b)
+
+    #     center_shift = 0.0
+    #     radius_scale = 1.0
+
+    #     if a >= 0:
+
+    #         alpha = 1
+    #         gamma = 0
+    #         delta0 = 0
+
+    #     elif b <= 0:
+    #         alpha = -1
+    #         gamma = 0
+    #         delta0 = 0
+
+    #     else:
+
+    #         # ---------- Chebyshev approximation ----------
+    #         if cheb:
+
+    #             alpha = (fb - fa)/(b - a)
+    #             xs = 0
+
+    #             gamma = 0.5 * (
+    #                 fa
+    #                 - alpha*(a + xs)
+    #             )
+
+    #             delta0 = 0.5 * np.abs(
+    #                 - fa
+    #                 - alpha*(xs - a)
+    #             )
+
+    #             # alpha = 0
+
+    #             # gamma = 0.5 * (
+    #             #     max(fa, fb)
+    #             # )
+
+    #             # delta0 = gamma 
+
+    #         else: 
+
+    #             alpha = 0
+
+    #             gamma = 0.5 * (
+    #                 max(fa, fb)
+    #             )
+
+    #             delta0 = gamma 
+
+    #     _, delta = self._outer_bound(0.0, float(delta0))       
+
+    #     new_f = self._affine_constructor(
+    #         gamma,
+    #         alpha,
+    #         delta,
+    #         center_shift=center_shift,
+    #         radius_scale=radius_scale
+    #     )
+
+    #     fun_a , fun_b = new_f.interval
+
+    #     if fun_a <= 0:
+
+    #         old_center = new_f.x0
+    #         old_radius = np.sum(np.abs(new_f.xi)) + np.sum(np.abs(new_f.delta))
+
+    #         new_center = 0.5 * fun_b
+    #         new_radius = 0.5 * fun_b
+
+    #         center_shift = new_center - old_center
+
+    #         if old_radius > 0:
+    #             radius_scale = new_radius / old_radius
+    #         else:
+    #             radius_scale = 1.0
+
+    #     return new_f._affine_constructor(
+    #         gamma = 0,
+    #         alpha = 1,
+    #         delta = 0,
+    #         center_shift=center_shift,
+    #         radius_scale=radius_scale
+    #     )
     
-    def sqrt(self, cheb=False):
+    def sqrt(self, cheb=False, warn=False):
 
         a, b = self.interval
 
-        if a < 0:
-            # raise ValueError(
-            #     f"sqrt undefined for interval [{a}, {b}] "
-            #     "because it contains negative values."
-            # ) 
-
-            fa = 0
-            a = 0
-
-        else:
-
-            fa = np.sqrt(a)
+        if b<=0:
+            raise ValueError(
+                f"sqrt undefined for interval [{a}, {b}] "   
+            )
         
-           
+        if np.isclose(a, b):
+            return AffineScalar(
+                x0=np.sqrt(a),
+                xi=np.zeros_like(self.xi),
+                delta=np.zeros(0)
+            )
+
+        center_shift = 0.0
+        radius_scale = 1.0
+
+        if a <= 0:
+
+            new_a = 0.0
+            
+            if warn:
+                warnings.warn(
+                    f"sqrt(): lower bound {a} is non-positive; "
+                    f"clipping interval to [{new_a}, {b}]",
+                    RuntimeWarning,
+                    stacklevel=2
+                )
+
+            old_center = self.x0
+            old_radius = np.sum(np.abs(self.xi)) + np.sum(np.abs(self.delta))
+
+            new_b = b
+
+            new_center = 0.5 * (new_a + new_b)
+            new_radius = 0.5 * (new_b - new_a)
+
+            center_shift = new_center - old_center
+            radius_scale = new_radius / old_radius
+
+            a = new_a
+            b = new_b
+
+        
+        fa = np.sqrt(a)  
         fb = np.sqrt(b)
 
         # ---------- Chebyshev approximation ----------
@@ -510,7 +1042,9 @@ class AffineScalar:
         return self._affine_constructor(
             gamma,
             alpha,
-            delta
+            delta,
+            center_shift=center_shift,
+            radius_scale=radius_scale
         )
     
     # Trigonometric functions
@@ -1239,10 +1773,6 @@ class AffineScalar:
             delta
         )
 
-    
-    # def cosh(self, cheb=False):
-
-    #     return (self.exp(cheb=cheb) + (-self).exp(cheb=cheb)) * 0.5
 
     def cosh(self, cheb=False):
 
@@ -1466,23 +1996,50 @@ class AffineScalar:
             delta
         )
     
-    def arcsin(self, cheb=False):
+    def arcsin(self, cheb=False, warn=False):
 
         a, b = self.interval
 
-        fa = np.arcsin(a)
-        fb = np.arcsin(b)
-
         tol = 1e-12
 
+        # if a < -1.0 - tol or b > 1.0 + tol:
+        #     raise RuntimeError(
+        #         "arcsin domain exceeded."
+        #     )
+
+        # a = np.clip(a, -1.0, 1.0)
+        # b = np.clip(b, -1.0, 1.0)
+
+        center_shift = 0.0
+        radius_scale = 1.0
+
         if a < -1.0 - tol or b > 1.0 + tol:
-            raise RuntimeError(
-                "arcsin domain exceeded."
-            )
 
-        a = np.clip(a, -1.0, 1.0)
-        b = np.clip(b, -1.0, 1.0)
+            new_a = np.clip(a, -1.0, 1.0)
+            new_b = np.clip(b, -1.0, 1.0)
+            
+            if warn:
+                warnings.warn(
+                    f"arcsin(): lower bound {a} and upper bound {b}; "
+                    f"clipping interval to [{new_a}, {new_b}]",
+                    RuntimeWarning,
+                    stacklevel=2
+                )
 
+            old_center = self.x0
+            old_radius = np.sum(np.abs(self.xi)) + np.sum(np.abs(self.delta))
+
+            new_center = 0.5 * (new_a + new_b)
+            new_radius = 0.5 * (new_b - new_a)
+
+            center_shift = new_center - old_center
+            radius_scale = new_radius / old_radius
+
+            a = new_a
+            b = new_b        
+
+        fa = np.arcsin(a)
+        fb = np.arcsin(b)
 
         if abs(b - a) < 1e-12:
 
@@ -1629,10 +2186,29 @@ class AffineScalar:
         return self._affine_constructor(
             gamma,
             alpha,                                                                                                                                                                                                                       
-            delta
+            delta,
+            center_shift=center_shift,
+            radius_scale=radius_scale
         )
     
-    def arccos(self, cheb=False):
+    def arccos(self, cheb=False, warn=False):
+
+        a, b = self.interval
+
+        tol = 1e-12        
+
+        if a < -1.0 - tol or b > 1.0 + tol:
+
+            new_a = np.clip(a, -1.0, 1.0)
+            new_b = np.clip(b, -1.0, 1.0)
+            
+            if warn:
+                warnings.warn(
+                    f"arccos(): lower bound {a} and upper bound {b}; "
+                    f"clipping interval to [{new_a}, {new_b}]",
+                    RuntimeWarning,
+                    stacklevel=2
+                )    
 
         return (-(self.arcsin(cheb=cheb)) + np.pi/2) 
 
@@ -1791,338 +2367,229 @@ class AffineScalar:
 
         return ((-self).arctan(cheb=cheb) + np.pi/2)
     
-    @staticmethod
-    def _real_power(x, n, tol=1e-12):
-
-        # Integer exponent
-        if abs(n - round(n)) < tol:
-            return np.power(x, int(round(n)))
-
-        # Reciprocal integer?
-        m = round(abs(1.0/n))
-
-        if abs(abs(n) - 1.0/m) < tol:
-
-            # Odd reciprocal
-            if m % 2 == 1:
-
-                y = np.sign(x) * np.abs(x)**(1.0/m)
-
-                if n > 0:
-                    return y
-                else:
-                    return 1.0/y
-
-            # Even reciprocal
-            else:
-                return np.power(x, n)
-
-        return np.power(x, n)
     
-    def pow(self, n: float, cheb=False):
+    # def powerI(self, r):
+    #     a, b = self.interval
+    #     I = Interval(a, b)
+    #     return I ** Interval(r)
+    
+
+    @staticmethod
+    def _deriv_abs_pow(x, r, tol=1e-12):
+
+        """Derivative of f(x) = |x|^r, i.e. r * sign(x) * |x|^(r-1)."""
+
+        if abs(x) < tol:
+
+            return 0.0
+        
+        return r * np.sign(x) * abs(x)**(r - 1)
+    
+    @staticmethod
+    def _deriv_odd_pow(x, r):
+        """Derivative of f(x) = sign(x)*|x|^r, i.e. r * |x|^(r-1)."""
+        return r * abs(x)**(r - 1)
+    
+    def pow(self, r: int | float | Fraction, cheb=False, warn=False):
 
         a, b = self.interval
 
-        # fa = np.pow(a,n)
-        # fb = np.pow(b,n)
+        if np.isclose(a, b):
 
-        fa = self._real_power(a, n)
-        fb = self._real_power(b, n)
+            return AffineScalar(
+                x0=a**r,
+                xi=np.zeros_like(self.xi),
+                delta=np.zeros(0)
+            )
 
-        tol = 1e-12
-
-        if abs(b - a) < tol:
+        if math.isclose(r, 1.0, abs_tol=1e-12):
 
             return self._affine_constructor(
-                fa,              
-                n*self._real_power(a, n-1),
+                0.0,
+                1.0,
                 0.0
             )
         
+        frac = Fraction(r).limit_denominator(10000)
 
-        p = (fb-fa)/(b-a)
+        # Irrational exponent
+        if not math.isclose(
+            float(frac),
+            r,
+            rel_tol=1e-12,
+            abs_tol=1e-15
+        ):
+            return ((self.log(cheb=cheb)) * r).exp(cheb=cheb)
+        
+        p = frac.numerator
+        q = frac.denominator
 
+        center_shift = 0.0
+        radius_scale = 1.0
 
-        if abs(n - 1.0) < tol:
-            return self._affine_constructor(
-                0.0,   # gamma
-                1.0,   # alpha
-                0.0    # delta
-            )
- 
+        eps = 1e-12
 
-        elif round(n) % 2 == 0 and n > 1:
+        if q % 2 == 0:
+            # right-half graph (x >= 0)
 
-            # --------------------------------------------------
-            # Chebyshev / Lemma 3
-            # --------------------------------------------------
+            if a <= 0:
 
-            if cheb:
-
-                alpha = p
-
-                xs = (alpha/n)**(1.0/(n-1))
-
-                # fxs = xs**n
-
-                fxs = self._real_power(xs, n)
-
-                gamma = (
-                    fa
-                    + fxs
-                    - alpha*(a+xs)
-                )/2
-
-                delta0 = abs(
-                    (
-                        fxs
-                        - fa
-                        - alpha*(xs-a)
-                    )/2
-                )
-
-            # --------------------------------------------------
-            # Minimum-range version
-            # -------------------------------------------------- 
-
-            else:
-
-                fmax = max(fa,fb)
-                fmin = min(fa,fb)
-
-                if a <= 0 <= b:
-
-                    alpha = 0.0
-                    fmin = 0.0
-
-                elif b <= 0:
-                    alpha = max(
-                        n*self._real_power(a, n-1),
-                        n*self._real_power(b, n-1)
-                    )
-                else:
-                    alpha = min(
-                        n*self._real_power(a, n-1),
-                        n*self._real_power(b, n-1)
-                    )
-
-                gamma = 0.5*(
-                    fmax + fmin
-                    - alpha*(a+b)
-                )
-
-                delta0 = 0.5*abs(
-                    fmax-fmin
-                    - alpha*(b-a)
-                )
-
-        elif round(n) % 2 == 1 and n > 1:
-
-            # --------------------------------------------------
-            # Chebyshev / Lemma 3
-            # --------------------------------------------------
-
-            if cheb:
-
-                alpha = p
-
-                xs = (alpha/n)**(1.0/(n-1))
-
-                # Case A
-                if a >= 0.0:
-
-                    xi = xs
-
-
-                elif b <= 0.0:
-
-                    xi = -xs
-
-                if a >= 0.0 or b <= 0.0:
-
-                    if not (a <= xi <= b):
-                        raise RuntimeError(
-                            "Unexpected stationary point."
-                        )
-                
-                    gamma = (
-                        fa
-                        + self._real_power(xi, n)
-                        - alpha*(a + xi)
-                    )/2
-
-                    delta0 = abs(
-                        (
-                            self._real_power(xi, n)
-                            - fa
-                            - alpha*(xi - a)
-                        )/2
-                    )
-
-                # Case C
-                elif abs(a + b) < tol:
-
-                    gamma = 0.0
-
-                    delta0 = abs(
-                        self._real_power(xs, n)
-                        - alpha*xs
-                    )
-
-                # Case B
-                else:
-
-                    xi1 = -xs
-                    xi2 = xs
-
-                    inside1 = (a <= xi1 <= b)
-                    inside2 = (a <= xi2 <= b)
-
-                    if inside1 and inside2:
-
-                        gamma = (
-                            self._real_power(xi1, n)
-                            + self._real_power(xi2, n)
-                            - alpha*(xi1 + xi2)
-                        )/2
-
-                        delta0 = abs(
-                            (
-                                self._real_power(xi2, n)
-                                - self._real_power(xi1, n)
-                                - alpha*(xi2 - xi1)
-                            )/2
-                        )
-
-                    elif inside1 or inside2:
-                    # Fall back to Case A using whichever root exists
-                        xi = xi1 if inside1 else xi2
-
-                        gamma = (
-                            fa
-                            + self._real_power(xi, n)
-                            - alpha*(a + xi)
-                        )/2
-
-                        delta0 = abs(
-                            (
-                                self._real_power(xi, n)
-                                - fa
-                                - alpha*(xi - a)
-                            )/2
-                        )
-
-                    else:
-                        raise RuntimeError(
-                            "No stationary point found."
-                        )
-
-            # --------------------------------------------------
-            # Minimum-range version
-            # -------------------------------------------------- 
-            else:
-
-                if a <= 0 <= b:
-
-                    alpha = 0.0
-
+                new_a = 0.0 if r > 0 else eps
             
+                if warn:
+                    warnings.warn(
+                        f"pow(): lower bound {a} is non-positive; "
+                        f"clipping interval to [{new_a}, {b}]",
+                        RuntimeWarning,
+                        stacklevel=2
+                    )
+
+                old_center = self.x0
+                old_radius = np.sum(np.abs(self.xi)) + np.sum(np.abs(self.delta))
+
+                new_b = b
+
+                new_center = 0.5 * (new_a + new_b)
+                new_radius = 0.5 * (new_b - new_a)
+
+                center_shift = new_center - old_center
+                radius_scale = new_radius / old_radius
+
+                a = new_a
+                b = new_b
+
+            fa = a**r
+            fb = b**r
+
+            if cheb:
+
+                alpha = (fb - fa)/(b - a)
+
+                xs = (alpha/r)**(1.0/(r-1))
+                fxs = xs**r
+
+                gamma = 0.5*( fxs + fa - alpha*(a + xs) )
+                delta0 = 0.5*abs(fxs - fa -alpha*(xs - a))
+
+            else:
+
+                if r < 0:
+                    alpha = max(r*a**(r - 1), r*b**(r - 1))
+
                 else:
-                    alpha = min(
-                        n*self._real_power(a, n-1),
-                        n*self._real_power(b, n-1)
-                    )
+                    alpha = min(r*a**(r - 1), r*b**(r - 1))
+            
+                gamma = 0.5*( fa + fb - alpha*(a + b) )
+                delta0 = 0.5*abs(fb - fa - alpha*(b - a))
 
-                gamma = 0.5*(
-                    fa + fb
-                    - alpha*(a+b)
-                )
 
-                delta0 = 0.5*abs(
-                    fb-fa
-                    - alpha*(b-a)
-                )
+        elif p % 2 == 0:
+            # even graph
 
-        elif 0 < n < 1:
+            if r > 0:
 
-            m = round(1/n)
+                fa = abs(a)**r
+                fb = abs(b)**r
 
-            if abs(m - 1/n) > tol:
-                raise RuntimeError("Exponent is not ±1/k.")
-
-            if m % 2 == 0:
-
-                if a < 0:
-                    raise RuntimeError(
-                        "Even roots require x >= 0."
-                    )
-                
                 # --------------------------------------------------
                 # Chebyshev / Lemma 3
                 # --------------------------------------------------
 
                 if cheb:
 
-                    alpha = p
+                    alpha = (fb - fa) / (b - a)
 
-                    xi = (alpha/n)**(1.0/(n-1))
-
-                    if not (a <= xi <= b):
-                        raise RuntimeError(
-                            "Unexpected stationary point."
-                        )
-                
-                    # Only Case A
-
-                    gamma = (
-                        fa
-                        + self._real_power(xi, n)
-                        - alpha*(a + xi)
-                    )/2
-
-                    delta0 = abs(
-                        (
-                            self._real_power(xi, n)
-                            - fa
-                            - alpha*(xi - a)
-                        )/2
-                    )
-
-                # --------------------------------------------------
-                # Minimum-range version
-                # --------------------------------------------------
-
-                else:
-
-                    alpha = n*self._real_power(b, n-1)
-
-                    gamma = 0.5*(
-                        fa + fb
-                        - alpha*(a+b)
-                    )
-
-                    delta0 = 0.5*abs(
-                        fb-fa
-                        - alpha*(b-a)
-                    )
-
-            elif m % 2 == 1:
-                
-                # --------------------------------------------------
-                # Chebyshev / Lemma 3
-                # --------------------------------------------------
-
-                if cheb:
-
-                    alpha = p
-
-                    xs = (alpha/n)**(1.0/(n-1))
+                    xs = np.sign(alpha/r) * abs(alpha/r)**(1/(r - 1))
 
                     if not (a <= xs <= b):
-                        raise RuntimeError(
-                            "Unexpected stationary point."
-                        )
 
+                        xs = 0.0
+       
+                    fxs = abs(xs)**r
+
+                    gamma = 0.5 * (fxs + fa - alpha * (a + xs))
+                    delta0 = 0.5 *abs(fxs - fa - alpha * (xs - a))
+
+                else:
+
+                    if a <= 0 <= b:
+                        # straddles zero: minimum sits at x = 0
+                        alpha = max(self._deriv_abs_pow(a, r), 0.0)
+                        fmin = 0.0
+
+                        fmax = max(fa , fb)
+                        gamma = 0.5 * (fmax + fmin - alpha * (a + b))
+                        delta0 = 0.5 *abs(fmax - fmin - alpha * (b - a))  
+
+                    elif b <= 0:
+                        # both endpoints negative, f decreasing
+                        alpha = max(self._deriv_abs_pow(a, r), self._deriv_abs_pow(b, r))
+
+                        gamma = 0.5 * (fa + fb - alpha * (a + b))
+                        delta0 = 0.5 * abs(fb - fa - alpha * (b - a)) 
+
+                    else:
+                        # both endpoints positive, f increasing
+                        alpha = min(self._deriv_abs_pow(a, r), self._deriv_abs_pow(b, r))
+
+                        gamma = 0.5 * (fa + fb - alpha * (a + b))
+                        delta0 = 0.5 * abs(fb - fa - alpha * (b - a)) 
+
+            else:
+
+                if a <= 0 <= b:
+
+                    raise ValueError(
+                      "Interval contains zero"
+                    )
+                
+                fa = abs(a)**r
+                fb = abs(b)**r
+
+                if cheb:
+
+                    alpha = (fb - fa)/(b - a)
+
+                    xs = abs(alpha / r)**(1.0 / (r - 1))
+
+                    xi = xs if a > 0 else -xs
+
+                    fxs = abs(xi)**r
+                    
+                    gamma = 0.5 * (fxs + fa - alpha * (a + xi))
+                    delta0 = 0.5 * abs(fxs - fa - alpha * (xi - a))
+
+                else:
+
+                    if b <= 0:
+
+                        alpha = self._deriv_abs_pow(a, r)
+
+                    else:
+
+                        alpha = self._deriv_abs_pow(b, r)
+
+                    gamma = 0.5 * (fa + fb - alpha * (a + b))
+                    delta0 = 0.5 * abs(fb - fa - alpha * (b - a))
+
+        else:
+            # odd graph
+
+            if r > 0:
+
+                fa = np.sign(a)*abs(a)**r
+                fb = np.sign(b)*abs(b)**r
+
+                # --------------------------------------------------
+                # Chebyshev / Lemma 3
+                # --------------------------------------------------
+
+                if cheb:
+
+                    alpha = (fb - fa) / (b - a)
+
+                    xs = abs(alpha/r)**(1.0/(r-1))
+                
                     # Case A
                     if a >= 0.0:
 
@@ -2133,33 +2600,28 @@ class AffineScalar:
                         xi = -xs
 
                     if a >= 0.0 or b <= 0.0:
-
-                        if not (a <= xi <= b):
-                            raise RuntimeError(
-                                "Unexpected stationary point."
-                            )
                 
                         gamma = (
                             fa
-                            + self._real_power(xi, n)
+                            + np.sign(xi) * abs(xi)**r
                             - alpha*(a + xi)
                         )/2
 
                         delta0 = abs(
                             (
-                                self._real_power(xi, n)
+                                np.sign(xi) * abs(xi)**r
                                 - fa
                                 - alpha*(xi - a)
                             )/2
                         )
 
                     # Case C
-                    elif abs(a + b) < tol:
+                    elif abs(a + b) < eps:
 
                         gamma = 0.0
 
                         delta0 = abs(
-                            self._real_power(xs, n)
+                            np.sign(xs) * abs(xs)**r
                             - alpha*xs
                         )
 
@@ -2175,15 +2637,15 @@ class AffineScalar:
                         if inside1 and inside2:
 
                             gamma = (
-                                self._real_power(xi1, n)
-                                + self._real_power(xi2, n)
+                                np.sign(xi1) * abs(xi1)**r
+                                + np.sign(xi2) * abs(xi2)**r
                                 - alpha*(xi1 + xi2)
                             )/2
 
                             delta0 = abs(
                                 (
-                                    self._real_power(xi2, n)
-                                    - self._real_power(xi1, n)
+                                    np.sign(xi2) * abs(xi2)**r
+                                    - np.sign(xi1) * abs(xi1)**r
                                     - alpha*(xi2 - xi1)
                                 )/2
                             )
@@ -2194,13 +2656,13 @@ class AffineScalar:
 
                             gamma = (
                                 fa
-                                + self._real_power(xi, n)
+                                + np.sign(xi) * abs(xi)**r
                                 - alpha*(a + xi)
                             )/2
 
                             delta0 = abs(
                                 (
-                                    self._real_power(xi, n)
+                                    np.sign(xi) * abs(xi)**r
                                     - fa
                                     - alpha*(xi - a)
                                 )/2
@@ -2210,119 +2672,76 @@ class AffineScalar:
                             raise RuntimeError(
                                 "No stationary point found."
                             )
-                    
-                # --------------------------------------------------
-                # Minimum-range version
-                # --------------------------------------------------
-
+                        
                 else:
 
-                    if a >=0:
+                    if a <= 0 <= b and r >= 1:
 
-                        # alpha = n*b**(n-1)
-
-                        alpha = n/abs(b)**(1.0-n)
-
-                    elif b <= 0:
-
-                        # alpha = n*a**(n-1)
-
-                        alpha = n/abs(a)**(1.0-n)
+                        alpha = 0.0
+                        gamma = 0.5 * (fa + fb)
+                        delta0 = 0.5 * abs(fb - fa) 
 
                     else:
-                    # a < 0 < b
-
-                        # if abs(a) < tol or abs(b) < tol:
-                        #     raise RuntimeError(
-                        #         "Derivative singularity at x = 0."
-                        #     )
 
                         alpha = min(
-                            n/abs(a)**(1-n),
-                            n/abs(b)**(1-n)
+                            r/abs(a)**(1-r),
+                            r/abs(b)**(1-r)
                         )
 
-                    gamma = 0.5*(
-                        fa + fb
-                        - alpha*(a+b)
-                    )
-
-                    delta0 = 0.5*abs(
-                        fb-fa
-                        - alpha*(b-a)
-                    )
-        #----------------------------------
-        # n < 0 
-        #----------------------------------
-        else:
-
-            if a <= 0 <= b:
-
-                raise RuntimeError(
-                        " The interval can't contain 0, when n < 0 "
-                    )
-
-            if cheb:
-
-                    alpha = p
-
-                    try:
-                        xs = abs(alpha/n)**(1.0/(n-1))
-
-                    except Exception:
-
-                        raise RuntimeError(
-                            "Unable to compute stationary point."
+                        gamma = 0.5*(
+                            fa + fb
+                            - alpha*(a+b)
                         )
 
-                    xi = xs if a > 0 else -xs
-
-                
-                    # Only Case A
-
-                    gamma = (
-                        fa
-                        + self._real_power(xi, n)
-                        - alpha*(a + xi)
-                    )/2
-
-                    delta0 = abs(
-                        (
-                            self._real_power(xi, n)
-                            - fa
-                            - alpha*(xi - a)
-                        )/2
-                    )
-
-            # --------------------------------------------------
-            # Minimum-range version
-            # --------------------------------------------------
+                        delta0 = 0.5*abs(
+                            fb-fa
+                            - alpha*(b-a)
+                        )   
 
             else:
 
-                if a >=0:
-                    alpha = n*self._real_power(b, n-1)
+                if a <= 0 <= b:
+
+                    raise ValueError(
+                      "Interval contains zero"
+                    )
+                
+                fa = np.sign(a) * abs(a)**r
+                fb = np.sign(b) * abs(b)**r
+
+                if cheb:
+
+                    alpha = (fb - fa)/(b -a)
+
+                    xs_mag = abs(alpha / r)**(1.0 / (r - 1))
+                    xs = xs_mag if a > 0 else -xs_mag
+
+                    fxs = np.sign(xs) * abs(xs)**r
+
+                    gamma = 0.5 * (fxs + fa - alpha * (a + xs))
+                    delta0 = 0.5 * abs(fxs - fa - alpha * (xs - a))
 
                 else:
-                    alpha = n*self._real_power(a, n-1)
 
-                gamma = 0.5*(
-                    fa + fb
-                    - alpha*(a+b)
-                )
+                    if b <= 0:
 
-                delta0 = 0.5*abs(
-                    fb-fa
-                    - alpha*(b-a)
-                    )
-            
+                        alpha = self._deriv_odd_pow(a, r)
+                    else:
+
+                        alpha = self._deriv_odd_pow(b, r)
+
+                    gamma = 0.5 * (fa + fb - alpha * (a + b))
+                    delta0 = 0.5 * abs(fb - fa - alpha * (b - a))
+
 
         _, delta = self._outer_bound(0.0, float(delta0))
 
         return self._affine_constructor(
             gamma,
             alpha,                                                                                                                                                                                                                       
-            delta
+            delta,
+            center_shift=center_shift,
+            radius_scale=radius_scale
         )
 
     def __repr__(self):
@@ -2330,17 +2749,47 @@ class AffineScalar:
         return (
             f"AffineScalar("
             f"x0={self.x0}, "
-            f"xi={self.xi})"
+            f"xi={self.xi}), "
+            f"delta ={self.delta}"
         )
     
 
 class AffineArray:
 
-    def __init__(self, x0, E):
+    # def __init__(self, x0, E):
+
+    #     self.x0 = np.asarray(x0, dtype=float)
+
+    #     self.E = np.asarray(E, dtype=float)
+
+    def __init__(self, x0, Xi=None, Delta=None):
 
         self.x0 = np.asarray(x0, dtype=float)
 
-        self.E = np.asarray(E, dtype=float)
+        if Xi is None:
+            Xi = np.zeros((len(x0), 0))
+
+        if Delta is None:
+            Delta = np.zeros((len(x0), 0))
+
+        self.Xi = np.asarray(Xi, dtype=float)
+        self.Delta = np.asarray(Delta, dtype=float)
+
+    # @classmethod
+    # def from_intervals(cls, intervals):
+
+    #     intervals = np.asarray(intervals, dtype=float)
+
+    #     lb = intervals[:, 0]
+    #     ub = intervals[:, 1]
+
+    #     x0 = 0.5 * (lb + ub)
+
+    #     r = 0.5 * (ub - lb)
+
+    #     E = np.diag(r)
+
+    #     return cls(x0, E)
 
     @classmethod
     def from_intervals(cls, intervals):
@@ -2354,23 +2803,38 @@ class AffineArray:
 
         r = 0.5 * (ub - lb)
 
-        E = np.diag(r)
+        Xi = np.diag(r)
 
-        return cls(x0, E)
+        Delta = np.zeros((len(x0), 0))
+
+        return cls(x0, Xi, Delta)
+
+    # @property
+    # def interval(self):
+
+    #     rad = np.sum(np.abs(self.E), axis=1)
+
+    #     lb = self.x0 - rad
+    #     ub = self.x0 + rad
+
+    #     # return np.column_stack((lb, ub))
+    #     return [
+    #         float(lb),
+    #         float(ub)
+    #     ]
 
     @property
     def interval(self):
 
-        rad = np.sum(np.abs(self.E), axis=1)
+        rad = (
+            np.sum(np.abs(self.Xi), axis=1)
+            + np.sum(np.abs(self.Delta), axis=1)
+        )
 
         lb = self.x0 - rad
         ub = self.x0 + rad
 
-        # return np.column_stack((lb, ub))
-        return [
-            float(lb),
-            float(ub)
-        ]
+        return np.column_stack((lb, ub))
 
     def split_interval(self, splits_per_dim):
 
@@ -2407,20 +2871,36 @@ class AffineArray:
 
         return sub_arrays
 
+    # def __getitem__(self, idx):
+
+    #     # print("getitem:", idx)
+
+    #     if idx < 0 or idx >= len(self.x0):
+    #         raise IndexError
+
+    #     return AffineScalar(self, idx)
+
+    # def __repr__(self):
+
+    #     return (
+    #         f"AffineArray(\n"
+    #         f"x0={self.x0},\n"
+    #         f"E=\n{self.E}\n)"
+    #     )
 
     def __getitem__(self, idx):
-
-        # print("getitem:", idx)
 
         if idx < 0 or idx >= len(self.x0):
             raise IndexError
 
         return AffineScalar(self, idx)
 
+
     def __repr__(self):
 
         return (
             f"AffineArray(\n"
             f"x0={self.x0},\n"
-            f"E=\n{self.E}\n)"
+            f"Xi=\n{self.Xi},\n"
+            f"Delta=\n{self.Delta}\n)"
         )

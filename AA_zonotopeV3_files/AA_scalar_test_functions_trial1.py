@@ -2,22 +2,8 @@ import numpy as np
 
 from Affine_ArithmeticClassV3 import AffineArray
 
-def branin(x):
-    """Branin function — accepts 1-D ndarray x of shape (2,)."""
-    x1 = 15 * x[0] - 5
-    x2 = 15 * x[1]
- 
-    a = 1
-    b = 5.1 / (4 * np.pi**2)
-    c = 5  / np.pi
-    r = 6
-    s = 10
-    t = 1 / (8 * np.pi)
- 
-    return a * (x2 - b * x1**2 + c * x1 - r)**2 + s * (1 - t) * np.cos(x1) + s + 5*x1
-
-
-
+def scale(x, lo, hi):
+    return lo + (hi - lo)*x
 
 def test_Branin(x, cheb=False):
 
@@ -55,13 +41,14 @@ def test_Ackley(x, d, cheb=False):
 
     for i in range(d):
 
-        xi = 2*32.768*x[i] - 32.768
+        # xi = 2*32.768*x[i] - 32.768
+        xi = scale(x[i], -32.768, 32.768)
 
-        sum1 += xi.pow(2, cheb=cheb)
+        sum1 += xi.pow(2, cheb=False)
         sum2 += (c * xi).cos(cheb=cheb)
 
     term1 = (-b * (sum1/d).sqrt(cheb=cheb)).exp(cheb=cheb)
-    term2 = (-(sum2/d)).exp(cheb=cheb)
+    term2 = ((sum2/d)).exp(cheb=cheb)
 
     funVal += -a * term1
     funVal += -term2
@@ -70,8 +57,11 @@ def test_Ackley(x, d, cheb=False):
 
 def test_Eggholder(x, cheb=False):
 
-    x1 = 2 * 512 * x[0] - 512
-    x2 = 2 * 512 * x[1] - 512
+    # x1 = 512 * x[0] - 512
+    # x2 = 512 * x[1] - 512
+
+    x1 = scale(x[0], -512, 512)
+    x2 = scale(x[1], -512, 512)
 
     funVal = (
         -(x2 + 47)
@@ -104,6 +94,7 @@ X = AffineArray.from_intervals([
 # Store results per split configuration
 results_Branin = {}
 
+# maximum number of splits, 2^dim1 in each direction
 dim1 = 9
 
 print("======================================= \n"
@@ -144,11 +135,13 @@ for m in range(dim1):
     results_Branin[(2**m, 2**m)] = {
         'f_rangeCh' : [lo_Ch, hi_Ch],
         'f_rangeMR' : [lo_MR, hi_MR],
+        'f_intersect': [max(lo_Ch, lo_MR), min(hi_Ch, hi_MR)]
     }
 
     print(f"splits={splits_per_dim}  |  "
         f"Chebyshev: [{lo_Ch:.6f}, {hi_Ch:.6f}]  |  "
-        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]")
+        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]  |  "
+        f"f_intersect: [{max(lo_Ch, lo_MR):.4f}, {min(hi_Ch, hi_MR):.4f}]")
 
 
 #------------------------------------------------
@@ -158,6 +151,7 @@ for m in range(dim1):
 # Store results per split configuration
 results_Eggholder = {}
 
+# maximum number of splits, 2^dim1 in each direction
 dim1 = 9
 
 print("======================================= \n"
@@ -195,15 +189,16 @@ for m in range(dim1):
         hi_Ch = max(hi_Ch, frange_ch[1])
 
     # Store result for this (m, n) configuration
-    results_Eggholder[(2**m, 2**m)] = {
+    results_Branin[(2**m, 2**m)] = {
         'f_rangeCh' : [lo_Ch, hi_Ch],
         'f_rangeMR' : [lo_MR, hi_MR],
+        'f_intersect': [max(lo_Ch, lo_MR), min(hi_Ch, hi_MR)]
     }
 
     print(f"splits={splits_per_dim}  |  "
         f"Chebyshev: [{lo_Ch:.6f}, {hi_Ch:.6f}]  |  "
-        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]")
-
+        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]  |  "
+        f"f_intersect: [{max(lo_Ch, lo_MR):.4f}, {min(hi_Ch, hi_MR):.4f}]")
 
 #------------------------------------------------
 #  Tset Ackley function 2-D case
@@ -212,6 +207,7 @@ for m in range(dim1):
 # Store results per split configuration
 results_Ackley2D = {}
 
+# maximum number of splits, 2^dim1 in each direction
 dim1 = 9
 
 print("======================================= \n"
@@ -221,7 +217,7 @@ print("======================================= \n"
 for m in range(dim1):
 
     splits_per_dim = [2**m, 2**m]
-
+    
     subintervals = X.split_interval(splits_per_dim)
 
     # Reset accumulators for each (m, n) configuration          
@@ -248,14 +244,16 @@ for m in range(dim1):
         hi_Ch = max(hi_Ch, frange_ch[1])
 
     # Store result for this (m, n) configuration
-    results_Ackley2D[(2**m, 2**m)] = {
+    results_Branin[(2**m, 2**m)] = {
         'f_rangeCh' : [lo_Ch, hi_Ch],
         'f_rangeMR' : [lo_MR, hi_MR],
+        'f_intersect': [max(lo_Ch, lo_MR), min(hi_Ch, hi_MR)]
     }
 
     print(f"splits={splits_per_dim}  |  "
         f"Chebyshev: [{lo_Ch:.6f}, {hi_Ch:.6f}]  |  "
-        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]")
+        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]  |  "
+        f"f_intersect: [{max(lo_Ch, lo_MR):.4f}, {min(hi_Ch, hi_MR):.4f}]")
     
 
 
@@ -272,7 +270,8 @@ X = AffineArray.from_intervals([
 # Store results per split configuration
 results_Ackley3D = {}
 
-dim1 = 9
+# maximum number of splits, 2^dim1 in each direction
+dim1 = 6
 
 print("======================================= \n"
     f"Results from Ackley function 3-D case \n"
@@ -281,7 +280,6 @@ print("======================================= \n"
 for m in range(dim1):
 
     splits_per_dim = [2**m, 2**m, 2**m]
-    # splits_per_dim = [3**m, 3**m, 3**m]
 
     subintervals = X.split_interval(splits_per_dim)
 
@@ -310,11 +308,13 @@ for m in range(dim1):
         hi_Ch = max(hi_Ch, frange_ch[1])
 
     # Store result for this (m, n) configuration
-    results_Ackley3D[(2**m, 2**m, 2**m)] = {
+    results_Branin[(2**m, 2**m, 2**m)] = {
         'f_rangeCh' : [lo_Ch, hi_Ch],
         'f_rangeMR' : [lo_MR, hi_MR],
+        'f_intersect': [max(lo_Ch, lo_MR), min(hi_Ch, hi_MR)]
     }
 
     print(f"splits={splits_per_dim}  |  "
         f"Chebyshev: [{lo_Ch:.6f}, {hi_Ch:.6f}]  |  "
-        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]")
+        f"Min-range: [{lo_MR:.6f}, {hi_MR:.6f}]  |  "
+        f"f_intersect: [{max(lo_Ch, lo_MR):.4f}, {min(hi_Ch, hi_MR):.4f}]")
