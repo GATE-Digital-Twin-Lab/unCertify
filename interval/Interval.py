@@ -10,6 +10,8 @@ TO DO:
     - Algorithms for interval data sets
 """
 import numpy as np
+from fractions import Fraction
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
@@ -142,6 +144,8 @@ class Interval:
     
     def width(self): return (self.rightval - self.leftval)
     
+    def bounds(self): return self.leftval, self.rightval
+    
     def isNeg(self):        
         if self.rightval < 0:
             return True
@@ -229,7 +233,12 @@ class Interval:
         return other.__truediv__(self)
     
     def __pow__(self, expo):
-        if type(expo) == int:
+        # Real exponent
+        # Negative power - no straddling base
+        # Fractional power - exact fractions: only okay for odd denominators
+        #
+        # Interval exponent
+        if type(expo) != Interval: #int:
             return self**Interval(expo)
         
         a = self.leftval
@@ -251,14 +260,31 @@ class Interval:
           
         if (zerobase & (c<=0) & (0.0 <= d)): #Both base and expo straddle 0
             raise(Exception('Cannot compute powers with both base and exponent straddling 0!'))
-          
+         
+        #Test if the scalar exponent is rational with an odd, positive integer
         if scalarexp & nothing(1/c % 1)\
             & nothing(1/c % 2 - 1.0) & (0.0 < c): 
-            return Interval(a**c, b**c);
+            
+            #Numpy cannot handle negative numbers with fractional powers correctly so do this
+            if negbase: return -abs(self)**c
+            if zerobase: return Interval(-np.abs(a)**c, b**c)
+            return Interval(a**c, b**c)
+        
+        #Test if 1/c (for scalar exponents) is an odd, negative integer, and that base doesn't straddle
         if scalarexp & nothing(-1/c % 1)\
-            & nothing(-1/c % 2 - 1.0) & (c<0.0) & (not zerobase):
+            & nothing(-1/c % 2 - 1.0) & (c < 0.0) & (not zerobase):
+            
+            #Numpy cannot handle negative numbers with fractional powers correctly so do this
+            if negbase: return -abs(self)**c
+            
             return 1.0/Interval(a**-c, b**-c);
-          
+        
+        #Test if general decimal fractions work
+        if scalarexp & (negbase | zerobase):
+            frac = Fraction(str(c))
+            if (frac.denominator % 2 - 1) != 0:
+          	  raise(Exception("Cannot compute negative fractional powers whose denominator is even, when base is negative or straddles 0!"))
+        
         if zerobase & (c <= 0.0):
           	  raise(Exception("Cannot compute negative powers when base straddles 0!"))
         
@@ -285,14 +311,21 @@ class Interval:
           
         if (1.0<=a) & (1.0<=c):
             return Interval(a**c, b**d);
-          
+         
+        if negbase:
+            a,b = abs(self).bounds()
+            posbase = True #Raise the flag to go into posbase block
+            
         if posbase:
             mm = a**c;   mmm = mm;
             m = b**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
             m = a**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
             m = b**c;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
-            return Interval(mm,mmm);
-           
+            
+            if negbase: #Capture the trick above
+                return -Interval(mm,mmm)
+            return Interval(mm,mmm)
+        
         raise(Exception("Problem: could not get power. Check base doesn't straddle 0."))
     
     def __rpow__(self, other):
