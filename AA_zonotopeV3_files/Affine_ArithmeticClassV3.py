@@ -2419,7 +2419,7 @@ class AffineScalar:
             rel_tol=1e-12,
             abs_tol=1e-15
         ):
-            return ((self.log(cheb=cheb)) * r).exp(cheb=cheb)
+            return ((self.log(cheb=cheb, warn=warn)) * r).exp(cheb=cheb)
         
         p = frac.numerator
         q = frac.denominator
