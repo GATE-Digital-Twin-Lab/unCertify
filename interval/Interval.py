@@ -501,6 +501,11 @@ def tightness(a,b):
     return b.width()/a.width()
     
 def cut(ival, cutter, side):
+    if hasattr(ival, '__iter__'):
+        ival_cut = []
+        for iv in ival:
+            ival_cut.append(cut(iv, cutter, side))
+        return ival_cut
     if side == 'left':
         left = cutter if cutter > ival.leftval and cutter < ival.rightval else ival.leftval
         return Interval(left, ival.rightval)
@@ -819,7 +824,7 @@ def attach_measurement_uncertainty(data, perc_fs:list=None, perc_rd=None, abs_un
     
     for d in data:
         d_u = d * (1+pm(perc_rd/100)) + mu_fs
-        if d_u.leftval <= 0: d_u.leftval = d
+        #if d_u.leftval <= 0: d_u.leftval = d
         du.append(d_u)
     
     return np.array(du)
