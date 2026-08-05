@@ -18,11 +18,11 @@ from matplotlib.patches import Rectangle
 from typing import Union
 
 
-PREC = 4 #Number of decimal places rounded to
-EPS = 1e-16 #Proxy machine precision
-
 class Interval:
-    def __init__(self, left, right=None, degen=True, dp=None, precision=PREC):
+    PREC = 4 #Number of decimal places rounded to
+    EPS = 1e-16 #Proxy machine precision
+    
+    def __init__(self, left, right=None, degen=True, dp=None, precision=None):
         ''' left  - the left bound of the interval or Number to construct the
                     interval from.
             right - the right bound of the interval; if both left and right are
@@ -69,9 +69,10 @@ class Interval:
         #     if (left > right): 
         #         raise(Exception("Math Problem: inverted interval (left > right)"))
         
+        
         self.leftval = left
         self.rightval = right
-        self.precision = precision
+        self.precision = precision if precision is not None else self.PREC
         
         self._left = _left
         self._right = _right
