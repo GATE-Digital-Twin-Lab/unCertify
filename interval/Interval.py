@@ -44,7 +44,6 @@ class Interval:
                 right = left.rightval
                 left = left.leftval
             elif hasattr(left, '__iter__'): #A list of np.array
-                # if hasattr(left[0], '__iter__') #Are we trying to construct an array of Intervals?
                 right = left[1]
                 left = left[0]
             # 'None' constructor - iffy
@@ -125,23 +124,6 @@ class Interval:
         #         f"degen={self._degen}, dp={self._dp}, precision={self.precision})"
         return f"interval([{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}])"
 
-    # Setters - old; unclear immediate value
-    # def left(self, newleft=None):
-    #     if newleft is None:
-    #         return self.leftval
-    #     else:
-    #         if newleft <= self.rightval: #Silently avoid an inverted interval
-    #             self.leftval = newleft
-    #             return self
-        
-    # def right(self, newright=None):
-    #     if newright is None:
-    #         return self.rightval
-    #     else:
-    #         if newright >= self.leftval: #Silently avoid an inverted interval
-    #             self.rightval = newright
-    #             return self
-          
     def mid(self): return (self.leftval + self.rightval) / 2.0
     
     def width(self): return (self.rightval - self.leftval)
@@ -536,7 +518,7 @@ def exp(exponent): #euler
     
 def log (x, l=10, impose_range=False):
     '''Take the log of the interval x. Log base 10 is default '''
-    if impose_range and x.rightval > 0: x = cut(x, EPS, 'left') #Not imposing range on base for now
+    if impose_range and x.rightval > 0: x = cut(x, Interval.EPS, 'left') #Not imposing range on base for now
     if not x.isPos() | l <= 0.0:
         raise(Exception("Logarithm base and operand must be positive."))
 		
@@ -544,7 +526,7 @@ def log (x, l=10, impose_range=False):
                  np.log(x.rightval)/np.log(l))
             
 def ln(x, impose_range=False):
-    if impose_range and x.rightval > 0: x = cut(x, EPS, 'left')
+    if impose_range and x.rightval > 0: x = cut(x, Interval.EPS, 'left')
     if not x.isPos():
         raise(Exception("Logarithm base must be positive."))
     return Interval(np.log(x.leftval), np.log(x.rightval))
@@ -705,6 +687,10 @@ def to_interval(array):
     return arr_of_ival
 
 #%% Methods for interval data
+def interval_array(data):
+    """Construct a list of multiple interval objects."""
+    return np.array([Interval(item) for item in data])
+
 def left(data:Union[list, np.ndarray]) -> np.ndarray:
     return np.array([ival.leftval for ival in data])
 
