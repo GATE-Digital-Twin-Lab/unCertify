@@ -17,6 +17,7 @@ from matplotlib.patches import Rectangle
 
 from typing import Union
 
+
 PREC = 4 #Number of decimal places rounded to
 EPS = 1e-16 #Proxy machine precision
 
@@ -156,6 +157,11 @@ class Interval:
             return True
         return False
     
+    def is_improper(self):
+        if self.leftval > self.rightval:
+            return True
+        return False
+    
     def straddles(self): 
         if (self.leftval < 0) & (self.rightval > 0): #Straddling should not include 0 - PH
             return True
@@ -233,106 +239,117 @@ class Interval:
         return other.__truediv__(self)
     
     def __pow__(self, expo):
-        # Real exponent
-        # Negative power - no straddling base
-        # Fractional power - exact fractions: only okay for odd denominators
-        #
-        # Interval exponent
-        if type(expo) != Interval: #int:
-            return self**Interval(expo)
-        
-        a = self.leftval
-        b = self.rightval
-        c = expo.leftval
-        d = expo.rightval
-        
-        scalarexp   = c == d
-        integralexp = scalarexp & (np.floor(c) == c)
-        evenexp     = integralexp & ((c % 2) == 0)
-        oddexp      = integralexp & ((c % 2) == 1)
-
-        posbase     = (0.0 <= a)
-        negbase     = (b <= 0.0)
-        zerobase    = ((a <= 0.0) & (0.0 <= b)) #base straddles
-
-        if (integralexp & (c == 1)): return Interval(a, b)
-        if (integralexp & nothing(c) & (not zerobase)): return Interval(1, 1)
-          
-        if (zerobase & (c<=0) & (0.0 <= d)): #Both base and expo straddle 0
-            raise(Exception('Cannot compute powers with both base and exponent straddling 0!'))
+         # Real exponent
+         # Negative power - no straddling base
+         # Fractional power - exact fractions: only okay for odd denominators
+         #
+         # Interval exponent
+         if type(expo) != Interval: #int:
+             return self**Interval(expo)
          
-        #Test if the scalar exponent is rational with an odd, positive integer
-        if scalarexp & nothing(1/c % 1)\
-            & nothing(1/c % 2 - 1.0) & (0.0 < c): 
-            
-            #Numpy cannot handle negative numbers with fractional powers correctly so do this
-            if negbase: return -abs(self)**c
-            if zerobase: return Interval(-np.abs(a)**c, b**c)
-            return Interval(a**c, b**c)
+         a = self.leftval
+         b = self.rightval
+         
+         #Turn exponent into fractions
+         c = expo.leftval
+         d = expo.rightval 
+         
+         scalarexp   = c == d
+         integralexp = scalarexp & (np.floor(c) == c)
+         evenexp     = integralexp & ((c % 2) == 0)
+         oddexp      = integralexp & ((c % 2) == 1)
+         posexp      = integralexp & (c >= 0)
+
+         posbase     = (0.0 <= a)
+         negbase     = (b <= 0.0)
+         zerobase    = ((a <= 0.0) & (0.0 <= b)) #base straddles
+         
+         
+         #Deal with non-computable results 
+         if zerobase and d < 0:
+              raise(Exception("Cannot compute negative powers, when base straddles 0!"))
+         
+         # if zerobase & (c <= 0) & (d >= 0): #Both base and expo straddle 0
+         #     raise(Exception('Cannot compute powers with both base and exponent straddling 0!'))
         
-        #Test if 1/c (for scalar exponents) is an odd, negative integer, and that base doesn't straddle
-        if scalarexp & nothing(-1/c % 1)\
-            & nothing(-1/c % 2 - 1.0) & (c < 0.0) & (not zerobase):
-            
-            #Numpy cannot handle negative numbers with fractional powers correctly so do this
-            if negbase: return -abs(self)**c
-            
-            return 1.0/Interval(a**-c, b**-c);
         
-        #Test if general decimal fractions work
-        if scalarexp & (negbase | zerobase):
-            frac = Fraction(str(c))
-            if (frac.denominator % 2 - 1) != 0:
-          	  raise(Exception("Cannot compute negative fractional powers whose denominator is even, when base is negative or straddles 0!"))
-        
-        if zerobase & (c <= 0.0):
-          	  raise(Exception("Cannot compute negative powers when base straddles 0!"))
-        
-        if integralexp & negbase & evenexp & (0.0 < c):
+         ## Special cases   
+         if (integralexp & (c == 1)): return Interval(a, b)
+         if (integralexp & nothing(c) & (not zerobase)): return Interval(1, 1)
+          
+         if integralexp & negbase & evenexp & (0.0 < c):
             return Interval(b**c, a**c)
-        
-        if integralexp & negbase & evenexp & (d < 0.0):
+       
+         if integralexp & negbase & evenexp & (d < 0.0):
             return Interval(-a**c, -b**c)
-        
-        if integralexp & negbase & oddexp:
-            return Interval(a**c, b**c);
-          
-        if integralexp & zerobase & evenexp and not nothing(c):
-            return Interval(0, np.maximum(np.abs(a), np.abs(b))**c)
-        
-        if integralexp & zerobase & oddexp:
-            return Interval(a**c, b**c);
-          
-        if integralexp & posbase & (0<=c):
-            return Interval(a**c, b**c);
-        
-        if integralexp & (not zerobase) & (d<0):
-            return Interval(b**d, a**d);
-          
-        if (1.0<=a) & (1.0<=c):
-            return Interval(a**c, b**d);
+       
+         if integralexp & negbase & oddexp & posexp:
+           return Interval(a**c, b**c)
          
-        if negbase:
-            a,b = abs(self).bounds()
-            posbase = True #Raise the flag to go into posbase block
-            
-        if posbase:
-            mm = a**c;   mmm = mm;
-            m = b**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
-            m = a**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
-            m = b**c;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
-            
-            if negbase: #Capture the trick above
-                return -Interval(mm,mmm)
-            return Interval(mm,mmm)
+         if integralexp & zerobase & evenexp and not nothing(c):
+            return Interval(0, np.maximum(np.abs(a), np.abs(b))**c)
+       
+         if integralexp & zerobase & oddexp:
+            return Interval(a**c, b**c)
+         
+         if integralexp & posbase & (0<=c):
+            return Interval(a**c, b**c)
+       
+         if integralexp & (not zerobase) & (d<0):
+            return Interval(b**d, a**d)
+         
+         if (a >= 1.0) & (c >= 1.0):
+            return Interval(a**c, b**d)
         
-        raise(Exception("Problem: could not get power. Check base doesn't straddle 0."))
+        
+         ## Other cases 
+         if posbase:
+             return Interval(self._compute_bounds_power_(a,b,c,d))
+           
+         if negbase and scalarexp: #Handle only fractions
+            c = Fraction(str(c)).limit_denominator(10_000) #This is also d
+            if c.denominator % 2 == 0: 
+                raise(Exception("Cannot compute fractional powers whose denominator is even, when base is negative or straddles 0!"))
+            
+            a_p, b_p = np.abs(a), np.abs(b)
+            if c.numerator % 2 == 0:
+                mm, mmm = self._compute_bounds_power_(a_p, b_p, c, d)
+                return Interval(mm, mmm)
+            if c.numerator % 2: #Odd numerator
+                mm, mmm = self._compute_bounds_power_(a_p, b_p, c, d)
+                return -Interval(mm, mmm)
+            
+         elif zerobase and scalarexp: #Handle only fractions
+             c = Fraction(str(c)).limit_denominator(10_000) #This is also d
+             if c.denominator % 2 == 0: 
+                 raise(Exception("Cannot compute fractional powers whose denominator is even, when base is negative or straddles 0!"))
+                 
+             a_p = np.abs(a)
+             if c.numerator % 2 == 0:
+                 return self._compute_bounds_power_(a_p,b,c,d)
+             if c.numerator % 2: #Regrdless of expo sign
+                 mm = -np.maximum(a_p**c, a_p**d)
+                 mmm = b**c if b < 1 else b**d
+                 return Interval(mm, mmm)
+         else:
+             raise(Exception("Cannot compute interval power when base is negative or straddles 0!"))
+         
+         # raise(Exception("Problem: could not get power. Check base doesn't straddle 0."))
+         
     
     def __rpow__(self, other):
     	if not isinstance(other, Interval):
     		other = Interval(other)
     		
     	return other.__pow__(self)
+    
+    def _compute_bounds_power_(self,a,b,c,d):
+        mm = a**c;   mmm = mm;
+        m = b**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
+        m = a**d;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
+        m = b**c;   mm = np.minimum(mm,m);  mmm = np.maximum(mmm,m);
+        
+        return mm, mmm
     
     def sqrt(self):
         return sqrt(self)
@@ -409,6 +426,7 @@ class Interval:
             kwargs['color'] = 'k'
         if 'lw' not in kwargs.keys(): kwargs['lw'] = 2
         
+        #TODO: Consider changing this to using rectangle to enable shading
         ax.plot([self.leftval, self.leftval], [0,1+raise_up], label=label, **kwargs)
         ax.plot([self.rightval, self.rightval], [0,1+raise_up], **kwargs)
         ax.plot([self.leftval, self.rightval], [1+raise_up, 1+raise_up], **kwargs)
@@ -440,7 +458,13 @@ def inside(a, b):
 			(a.leftval  <= b.rightval) &\
 			(a.rightval  <= b.rightval) &\
 			(a.rightval >= b.leftval)
-            
+
+def overlaps(a, b) -> bool:
+    ''' This function tests if two intervals overlap.
+     If the intervals just touch, overlap will return False!'''
+     
+    return not imposition(a,b).is_improper()
+
 def overlap(a, b):
     ''' This function *measures* overlap;  it doesn't test for it.
      If the intervals just touch, overlap will return zero!'''
@@ -714,7 +738,7 @@ def _var_lower_(data:Union[list, np.ndarray]) -> np.ndarray:
                    np.where(Y >= mn.rightval)[0][0]]
     
     N = len(data)
-    Vk = [] 
+    Vk = []
     for i in range(len(Y_isect_mn)-1):
         ik = d_right < Y_isect_mn[i]
         ik1 = d_left > Y_isect_mn[i+1]
@@ -731,8 +755,9 @@ def _var_lower_(data:Union[list, np.ndarray]) -> np.ndarray:
         R_k = S_k/N_k
         if (Y_isect_mn[i] <= R_k <= Y_isect_mn[i+1]) and inside(R_k, mn):
             Vk.append(M_k - S_k**2/(N*N_k))
-            
-    return np.min(Vk)
+           
+    var = np.min(Vk) if len(Vk) > 0 else None
+    return var
         
 def _var_upper_(data:Union[list, np.ndarray]) -> np.ndarray:      
     d_left = np.sort(left(data))
@@ -800,13 +825,16 @@ def attach_measurement_uncertainty(data, perc_fs:list=None, perc_rd=None, abs_un
     
     #Working version
     du = []
-    if isinstance(perc_fs[1], np.ndarray): mu_fs = perc_fs[1][0]*pm(perc_fs[0])
-    else: mu_fs = perc_fs[1]*pm(perc_fs[0])
+    if perc_fs:
+        if isinstance(perc_fs[1], np.ndarray): mu_fs = perc_fs[1][0]*pm(perc_fs[0]/100)
+        else: mu_fs = perc_fs[1]*pm(perc_fs[0]/100)
+    else: mu_fs = 0
+    
     for d in data:
-        d_u = d * (1+pm(perc_rd)) + mu_fs
+        d_u = d * (1+pm(perc_rd/100)) + mu_fs
         if d_u.leftval <= 0: d_u.leftval = d
         du.append(d_u)
-        
+    
     return np.array(du)
 
 #%% Helpers
@@ -821,7 +849,24 @@ def _check_numeric_(a):
     #TODO: Also implement checks for np's scalar types
     return type(a) == int or type(a) == float 
 
-#Plotting
+#%% Plotting
+def plot(data:Union[list, np.ndarray], ax=None, label=None, **kwargs):
+    if ax is None:
+        ax = plt.subplot()
+    # kwargs['facecolor'] = 'none'
+    # if 'color' not in kwargs.keys(): kwargs['edgecolor'] = 'k'
+    # else: kwargs['edgecolor'] = kwargs['color']; kwargs.pop('color')
+    if 'color' not in kwargs.keys(): kwargs['color'] = 'k'
+    if 'lw' not in kwargs.keys(): kwargs['lw'] = 2
+    if label: kwargs['label']=label
+    
+    raise_step = 0.01
+    for i, ival in enumerate(data):
+        raise_now = 0
+        for ivl in data[:i]: #Check if raising is needed
+            if overlaps(ival, ivl): raise_now += raise_step
+        ival.plot(ax=ax, label=label, raise_up=raise_now, **kwargs)
+        
 def plot2d(interval_list, ax=None, label=None, **kwargs):
     if ax is None:
         ax = plt.subplot()
