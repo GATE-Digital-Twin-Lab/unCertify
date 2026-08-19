@@ -130,12 +130,12 @@ class Interval:
     
     def bounds(self): return self.leftval, self.rightval
     
-    def isNeg(self):        
+    def is_neg(self):        
         if self.rightval < 0:
             return True
         return False
     
-    def isPos(self):
+    def is_pos(self):
         if self.leftval > 0:
             return True
         return False
@@ -188,7 +188,7 @@ class Interval:
             if not hasattr(other, '__iter__'): #Scalars
                 other = Interval(other, degen=True)
             
-        if self.isPos() and other.isPos():
+        if self.is_pos() and other.is_pos():
             return Interval(self.leftval * other.leftval,\
                             self.rightval * other.rightval)
         
@@ -379,6 +379,11 @@ class Interval:
     
     def __pos__(self):
         return self
+    
+    def make_proper(self):
+        if self.leftval > self.rightval:
+            self.leftval, self.rightval = self.rightval, self.leftval
+        return self
 
     def mirror(self):
         a = np.maximum(np.abs(self.leftval), self.rightval)
@@ -460,7 +465,7 @@ def sqrt(a, impose_range=False, preserve_sign=False):
         sqrt_neg = Interval(0, -a.leftval).sqrt()
         return Interval(-sqrt_neg.rightval, sqrt_pos.rightval)
     
-    if a.isNeg() or a.straddles():
+    if a.is_neg() or a.straddles():
         raise(Exception("Math Problem: square root of an at least partially negative interval"))
 	
     return Interval(np.sqrt(a.leftval), np.sqrt(a.rightval));
@@ -524,7 +529,7 @@ def exp(exponent): #euler
 def log (x, l=10, impose_range=False):
     '''Take the log of the interval x. Log base 10 is default '''
     if impose_range and x.rightval > 0: x = cut(x, Interval.EPS, 'left') #Not imposing range on base for now
-    if not x.isPos() | l <= 0.0:
+    if not x.is_pos() | l <= 0.0:
         raise(Exception("Logarithm base and operand must be positive."))
 		
     return Interval(np.log(x.leftval)/np.log(l),\
@@ -532,7 +537,7 @@ def log (x, l=10, impose_range=False):
             
 def ln(x, impose_range=False):
     if impose_range and x.rightval > 0: x = cut(x, Interval.EPS, 'left')
-    if not x.isPos():
+    if not x.is_pos():
         raise(Exception("Logarithm base must be positive."))
     return Interval(np.log(x.leftval), np.log(x.rightval))
     
@@ -543,7 +548,7 @@ def sin(x):
     yLeft = np.minimum(l, r)
     yRight = np.maximum(l,r)
     
-    if x.isPos():
+    if x.is_pos():
         r1 = (x.leftval - 0.5*np.pi) / 2/np.pi
         t1 = (np.ceil(r1) - r1) * 2*np.pi
         
@@ -554,7 +559,7 @@ def sin(x):
              yRight = 1
         if t2 <= x.width():
             yLeft = -1
-    elif x.isNeg():
+    elif x.is_neg():
         return -sin(-x)   
     else: #straddles
         a = x.leftval
@@ -690,6 +695,11 @@ def to_interval(array):
         arr_of_ival.append(I(arr))
         
     return arr_of_ival
+
+def _generate_points_(interval, n=1000):
+    '''Generate n linearly spaced points from within the interval.'''
+    a,b = interval.bounds()
+    return np.linspace(a, b, n)
 
 #%% Methods for interval data
 def interval_array(data):
