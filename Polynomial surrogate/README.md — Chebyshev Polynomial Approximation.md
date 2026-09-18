@@ -17,11 +17,9 @@ $
 
 the method constructs a local Chebyshev polynomial approximation
 
-$
-\[
+$\[
 p(x) \approx f(x)
-\]
-$
+\]$
 on each subdomain.
 
 The residual is then defined as
