@@ -312,10 +312,7 @@ p(X_{\text{sub}})
 The residual is calculated as
 
 $\[
-r(X_{\text{sub}})
-=
-f(X_{\text{sub}})
--
+r(X_{\text{sub}})=f(X_{\text{sub}})-
 p(X_{\text{sub}}).
 \]$
 
