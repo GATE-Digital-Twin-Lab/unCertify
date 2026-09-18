@@ -133,8 +133,7 @@ T_1(\xi)=\xi,
 and, for $\(k\geq1\),$
 
 $\[
-T_{k+1}(\xi)
-=
+T_{k+1}(\xi)=
 2\xi T_k(\xi)-T_{k-1}(\xi).
 \]$
 
@@ -158,11 +157,9 @@ The polynomial is evaluated using affine arithmetic.
 Provides utilities for domain subdivision and global interval hull computation.
 
 The original normalized domain is
-$
-\[
+$\[
 [0,1]^d.
-\]
-$
+\]$
 The function
 
 ```python
@@ -178,11 +175,9 @@ split_interval([4, 4])
 ```
 
 creates
-$
-\[
+$\[
 4\times4=16
-\]
-$
+\]$
 two-dimensional subdomains.
 
 The function
@@ -267,14 +262,11 @@ generates the Chebyshev-Lobatto grid and evaluates the numerical function at the
 The Chebyshev coefficients are then computed using a multidimensional DCT-I.
 
 The resulting approximation is
-$
-\[
-p(x)=
-\sum_{\mathbf{k}}
-C_{\mathbf{k}}
-T_{\mathbf{k}}(x).
-\]
-$
+
+$\[
+p(x)=\sum_{\mathbf{k}}C_{\mathbf{k}}
+T_{\mathbf{k}}(x).\]$
+
 ---
 
 ### Step 4 — Evaluate the original function using AA
