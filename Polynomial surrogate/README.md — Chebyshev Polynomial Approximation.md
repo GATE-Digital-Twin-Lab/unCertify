@@ -105,33 +105,43 @@ The physical subdomain
 $\[
 [a_k,b_k]
 \]$
+
 is mapped to the standard Chebyshev interval
+
 $\[
 [-1,1]
 \]$
+
 using
+
 $\[
 \xi_k =
 \frac{2x_k-(a_k+b_k)}
      {b_k-a_k}.
 \]$
+
 The Chebyshev basis is then generated using the three-term recurrence
+
 $\[
 T_0(\xi)=1,
 \]$
+
 $\[
 T_1(\xi)=\xi,
 \]$
+
 and, for $\(k\geq1\),$
+
 $\[
 T_{k+1}(\xi)
 =
 2\xi T_k(\xi)-T_{k-1}(\xi).
 \]$
+
 The multidimensional polynomial is represented as a tensor-product expansion
+
 $\[
-p(\xi_1,\ldots,\xi_d)
-=
+p(\xi_1,\ldots,\xi_d)=
 \sum_{i_1=0}^{n_1}
 \cdots
 \sum_{i_d=0}^{n_d}
