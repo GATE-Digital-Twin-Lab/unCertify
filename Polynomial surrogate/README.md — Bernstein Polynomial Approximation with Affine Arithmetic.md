@@ -15,11 +15,11 @@ The approach combines:
 5. **Rigorous residual bounding**
 6. **Global hull computation over all subdomains**
 
-The computational domain used by the current framework is normalized to
+The computational domain used by the current framework is normalised to
 
-\[
+$\[
 [0,1]^d.
-\]
+\]$
 
 A separate polynomial approximation is constructed on each subdomain, and the resulting local bounds are combined to obtain a global enclosure.
 
