@@ -1,5 +1,6 @@
 import numpy as np
 
+from functools import partial
 from Affine_ArithmeticClassV3 import AffineArray
 
 from BernsteinFiles import bernstein_approximation
@@ -30,8 +31,8 @@ from test_functions import (
 # fun_numpy = Eggholder_numpy
 # fun_AA = test_EggholderAA
 
-fun_numpy = Ackley_numpy
-fun_AA = test_AckleyAA
+fun_numpy = partial(Ackley_numpy, d=2)
+fun_AA = partial(test_AckleyAA, d=2)
 
 # Polynomial degree in each dimension
 nvec = [3, 3]

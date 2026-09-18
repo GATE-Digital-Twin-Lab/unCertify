@@ -1,5 +1,6 @@
 import numpy as np
 
+from functools import partial
 from Affine_ArithmeticClassV3 import AffineArray
 
 from ChebyshevFiles import (
@@ -39,8 +40,11 @@ cheb = False
 # fun_numpy = Eggholder_numpy
 # fun_AA = test_EggholderAA
 
-fun_numpy = Ackley_numpy
-fun_AA = test_AckleyAA
+fun_numpy = partial(Ackley_numpy, d=2)
+fun_AA = partial(test_AckleyAA, d=2)
+
+split_values = [1,2,4,8,16,32,64,128,256]
+
 # ============================================================
 # Subintervalization test
 # ============================================================
@@ -142,7 +146,7 @@ def test_subintervalization(
 # Run subintervalization experiment
 # ============================================================
 
-for splits in [1, 2, 4, 8, 16, 32, 64, 128, 256]:
+for splits in split_values:
 
     results = test_subintervalization(
         fun_numpy,
