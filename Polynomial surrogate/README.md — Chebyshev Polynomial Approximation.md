@@ -24,24 +24,19 @@ on each subdomain.
 
 The residual is then defined as
 
-$
-\[
+$\[
 r(x)=f(x)-p(x).
-\]
-$
+\]$
 Instead of relying only on the approximation error observed at the interpolation nodes, the residual is evaluated using affine arithmetic:
-$
-\[
+$\[
 r(X)=f(X)-p(X),
-\]
-$
+\]$
 which provides a conservative enclosure of the residual over the complete subdomain.
 
 The resulting global enclosure is obtained by taking the hull of the local interval enclosures over all subdomains.
 
 The overall procedure is therefore
-$
-\[
+$\[
 \boxed{
 f
 \;\longrightarrow\;
@@ -51,8 +46,7 @@ r=f-p
 \;\longrightarrow\;
 \text{AA bound on }r
 }
-\]
-$
+\]$
 combined with domain subintervalization.
 
 ---
@@ -108,47 +102,34 @@ residual_eval_AA(...)
 ```
 
 The physical subdomain
-$
-\[
+$\[
 [a_k,b_k]
-\]
-$
+\]$
 is mapped to the standard Chebyshev interval
-$
-\[
+$\[
 [-1,1]
-\]
-$
+\]$
 using
-$
-\[
+$\[
 \xi_k =
 \frac{2x_k-(a_k+b_k)}
      {b_k-a_k}.
-\]
-$
+\]$
 The Chebyshev basis is then generated using the three-term recurrence
-$
-\[
+$\[
 T_0(\xi)=1,
-\]
-$
-$
-\[
+\]$
+$\[
 T_1(\xi)=\xi,
-\]
-$
+\]$
 and, for $\(k\geq1\),$
-$
-\[
+$\[
 T_{k+1}(\xi)
 =
 2\xi T_k(\xi)-T_{k-1}(\xi).
-\]
-$
+\]$
 The multidimensional polynomial is represented as a tensor-product expansion
-$
-\[
+$\[
 p(\xi_1,\ldots,\xi_d)
 =
 \sum_{i_1=0}^{n_1}
@@ -157,8 +138,7 @@ p(\xi_1,\ldots,\xi_d)
 C_{i_1,\ldots,i_d}
 \prod_{k=1}^{d}
 T_{i_k}(\xi_k).
-\]
-$
+\]$
 The polynomial is evaluated using affine arithmetic.
 
 ---
