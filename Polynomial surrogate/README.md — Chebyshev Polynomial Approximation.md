@@ -279,13 +279,12 @@ f_AA = func_AA(X_sub, ...)
 
 This produces an enclosure
 
-$
-\[
+$\[
 f(X_{\text{sub}})
 \subseteq
 [f_{\mathrm{lo}},f_{\mathrm{hi}}].
-\]
-$
+\]$
+
 ---
 
 
@@ -299,13 +298,12 @@ p_AA = evaluate_chebyshev_AA(...)
 
 This gives an enclosure
 
-$
-\[
+$\[
 p(X_{\text{sub}})
 \subseteq
 [p_{\mathrm{lo}},p_{\mathrm{hi}}].
-\]
-$
+\]$
+
 ---
 
 
@@ -313,15 +311,13 @@ $
 
 The residual is calculated as
 
-$
-\[
+$\[
 r(X_{\text{sub}})
 =
 f(X_{\text{sub}})
 -
 p(X_{\text{sub}}).
-\]
-$
+\]$
 
 This is implemented by
 
@@ -331,13 +327,12 @@ residual = f - p
 
 and provides a conservative affine-arithmetic enclosure
 
-$
-\[
+$\[
 r(X_{\text{sub}})
 \subseteq
 [r_{\mathrm{lo}},r_{\mathrm{hi}}].
-\]
-$
+\]$
+
 ---
 
 
@@ -360,22 +355,21 @@ residual_hull = hull_intervals(residual_intervals)
 ```
 
 Thus, the global residual enclosure is
-$
-\[
+$\[
 r(X)
 \subseteq
 \operatorname{hull}
 \left(
 \bigcup_i r(X_i)
 \right),
-\]
-$
+\]$
+
 where
-$
-\[
+
+$\[
 X=\bigcup_i X_i.
-\]
-$
+\]$
+
 The widths of the resulting global bounds are also reported:
 
 ```python
@@ -436,11 +430,10 @@ nvec = [n1, n2, ..., nd]
 specifies the degree in each dimension.
 
 The resulting tensor-product polynomial contains
-$
-\[
+$\[
 \prod_{k=1}^{d}(n_k+1)
-\]
-$
+\]$
+
 Chebyshev basis terms.
 
 For example,
@@ -450,11 +443,10 @@ nvec = [3, 3]
 ```
 
 requires
-$
-\[
+$\[
 (3+1)(3+1)=16
-\]
-$
+\]$
+
 basis terms.
 
 ---
@@ -519,11 +511,10 @@ The Chebyshev coefficients are obtained from floating-point evaluations of the o
 Therefore, the polynomial construction itself is a numerical approximation step.
 
 The rigorous bounding step is performed separately by evaluating
-$
-\[
+$\[
 f(X)-p(X)
-\]
-$
+\]$
+
 using affine arithmetic over each subdomain.
 
 Consequently, the framework separates:
@@ -609,24 +600,20 @@ Chebyshev/
 The implemented approach combines **local Chebyshev polynomial approximation**, **affine-arithmetic evaluation**, and **domain subintervalization**.
 
 For each subdomain \(X_i\),
-$
-\[
+$\[
 f(X_i)
-\]
-$
+\]$
+
 is evaluated directly using affine arithmetic, while a local polynomial
-$
-\[
+
+$\[
 p_i(x)
-\]
-$
+\]$
 is constructed numerically and evaluated using affine arithmetic. The residual
 
-$
-\[
+$\[
 r_i(X_i)=f(X_i)-p_i(X_i)
-\]
-$
+\]$
 
 is then enclosed using affine arithmetic.
 
