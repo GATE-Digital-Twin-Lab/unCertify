@@ -10,9 +10,10 @@ The main objective is to approximate a nonlinear function locally by a polynomia
 
 For a function
 
-\[
+$\[
 f(x), \qquad x\in[0,1]^d,
 \]
+$
 
 the method constructs a local Chebyshev polynomial approximation
 
