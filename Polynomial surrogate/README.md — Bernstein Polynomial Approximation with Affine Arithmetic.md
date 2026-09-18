@@ -17,9 +17,7 @@ The approach combines:
 
 The computational domain used by the current framework is normalised to
 
-$\[
-[0,1]^d.
-\]$
+$[0,1]^d.$
 
 A separate polynomial approximation is constructed on each subdomain, and the resulting local bounds are combined to obtain a global enclosure.
 
@@ -47,22 +45,20 @@ Thus:
 
 In all three cases, the resulting approximation has the form
 
-\[
-p_B(t)
-=
+$\[
+p_B(t)=
 \sum_{i_1=0}^{n_1}\cdots\sum_{i_d=0}^{n_d}
 C_{i_1,\ldots,i_d}
 \prod_{k=1}^{d}
 B_{i_k,n_k}(t_k),
-\]
+\]$
 
 where
 
-\[
-B_{k,n}(t)
-=
+$\[
+B_{k,n}(t) =
 \binom{n}{k}t^k(1-t)^{n-k}
-\]
+\]$
 
 are Bernstein basis functions.
 
@@ -85,14 +81,14 @@ means that the implementation:
 
 This distinction is particularly important for the **Bernstein convex-hull property**. Regardless of whether the coefficients were obtained using Bernstein, Chebyshev-Lobatto, or Legendre-Lobatto interpolation points, the final polynomial is represented in the Bernstein basis. Consequently,
 
-\[
+$\[
 \min_i C_i
 \leq
 p_B(t)
 \leq
 \max_i C_i,
 \qquad t\in[0,1]^d,
-\]
+\]$
 
 providing a coefficient-based enclosure of the polynomial.
 
@@ -151,11 +147,11 @@ Original domain [0,1]^d
 
 # 1. Domain subintervalization
 
-The normalized domain is
+The normalised domain is
 
-\[
+$\[
 X=[0,1]^d.
-\]
+\]$
 
 The domain can be divided into a user-specified number of subintervals in each dimension.
 
@@ -167,19 +163,18 @@ split_interval([4, 4])
 
 divides a two-dimensional domain into
 
-\[
+$\[
 4\times4=16
-\]
+\]$
 
 subdomains.
 
 Each subdomain has the form
 
-\[
-X_i
-=
+$\[
+X_i =
 [a_1,b_1]\times\cdots\times[a_d,b_d].
-\]
+\]$
 
 The polynomial approximation is constructed independently on each subdomain.
 
@@ -189,36 +184,35 @@ The global enclosure is subsequently obtained by taking the hull of the local en
 
 ---
 
-# 2. Mapping each subdomain to `[0,1]^d`
+# 2. Mapping each subdomain to $`[0,1]^d`$
 
 For a subdomain
 
-\[
+$\[
 X_i=
 \prod_{k=1}^{d}[a_k,b_k],
-\]
+\]$
 
-the physical coordinates are mapped to normalized coordinates using
+the physical coordinates are mapped to normalised coordinates using
 
-\[
-t_k
-=
+$\[
+t_k =
 \frac{x_k-a_k}{b_k-a_k}.
-\]
+\]$
 
 Therefore,
 
-\[
+$\[
 t_k\in[0,1].
-\]
+\]$
 
-The Bernstein polynomial is constructed in this normalized coordinate system.
+The Bernstein polynomial is constructed in this normalised coordinate system.
 
 The inverse mapping is
 
-\[
+$\[
 x_k=a_k+(b_k-a_k)t_k.
-\]
+\]$
 
 This mapping allows the same Bernstein basis definition to be used on every subdomain.
 
@@ -228,14 +222,13 @@ This mapping allows the same Bernstein basis definition to be used on every subd
 
 The one-dimensional Bernstein basis of degree \(n\) is
 
-\[
-B_{k,n}(t)
-=
+$\[
+B_{k,n}(t) =
 \binom{n}{k}
 t^k(1-t)^{n-k},
 \qquad
 k=0,\ldots,n.
-\]
+\]$
 
 The basis satisfies two important properties:
 
@@ -243,23 +236,23 @@ The basis satisfies two important properties:
 
 For
 
-\[
+$\[
 t\in[0,1],
-\]
+\]$
 
 we have
 
-\[
+$\[
 B_{k,n}(t)\geq0.
-\]
+\]$
 
 ### Partition of unity
 
 The basis functions satisfy
 
-\[
+$\[
 \sum_{k=0}^{n}B_{k,n}(t)=1.
-\]
+\]$
 
 These properties lead directly to the Bernstein convex-hull property used for polynomial range bounding.
 
@@ -269,41 +262,38 @@ These properties lead directly to the Bernstein convex-hull property used for po
 
 The implementation does not need to explicitly construct each basis function using the expression
 
-\[
+$\[
 \binom{n}{k}t^k(1-t)^{n-k}.
-\]
+\]$
 
 Instead, `AA_evaluationBr.py` constructs the basis recursively.
 
 The recurrence starts with
 
-\[
+$\[
 B_{0,0}(t)=1.
-\]
+\]$
 
 For increasing degree,
 
-\[
-B_{0,m}(t)
-=
+$\[
+B_{0,m}(t) =
 (1-t)B_{0,m-1}(t),
-\]
+\]$
 
-\[
-B_{k,m}(t)
-=
+$\[
+B_{k,m}(t) =
 (1-t)B_{k,m-1}(t)
 +
 tB_{k-1,m-1}(t),
-\]
+\]$
 
 and
 
-\[
-B_{m,m}(t)
-=
+$\[
+B_{m,m}(t) =
 tB_{m-1,m-1}(t).
-\]
+\]$
 
 This recurrence is particularly convenient for Affine Arithmetic because the basis functions can be constructed using the overloaded AA operations.
 
@@ -311,30 +301,29 @@ This recurrence is particularly convenient for Affine Arithmetic because the bas
 
 # 5. Tensor-product Bernstein polynomial
 
-For a \(d\)-dimensional problem with degree vector
+For a $\(d\)-$ dimensional problem with degree vector
 
-\[
+$\[
 \mathbf n=(n_1,\ldots,n_d),
-\]
+\]$
 
 the tensor-product Bernstein approximation is
 
-\[
-p_B(t)
-=
+$\[
+p_B(t) =
 \sum_{i_1=0}^{n_1}
 \cdots
 \sum_{i_d=0}^{n_d}
 C_{i_1,\ldots,i_d}
 \prod_{k=1}^{d}
 B_{i_k,n_k}(t_k).
-\]
+\]$
 
 Here,
 
-\[
+$\[
 C_{i_1,\ldots,i_d}
-\]
+\]$
 
 are the Bernstein coefficients.
 
@@ -346,9 +335,9 @@ nvec = [3, 3]
 
 the polynomial has
 
-\[
+$\[
 (3+1)(3+1)=16
-\]
+\]$
 
 Bernstein coefficients.
 
@@ -360,13 +349,13 @@ The code supports three choices of interpolation nodes:
 
 ### Bernstein nodes
 
-For degree \(n\),
+For degree $\(n\)$,
 
-\[
+$\[
 t_k=\frac{k}{n},
 \qquad
 k=0,\ldots,n.
-\]
+\]$
 
 ### Chebyshev-Lobatto nodes
 
@@ -408,19 +397,18 @@ The function values are first evaluated on the tensor-product interpolation grid
 
 For each dimension, an interpolation matrix is constructed from the Bernstein basis:
 
-\[
-A_{jk}
-=
+$\[
+A_{jk} =
 B_{k,n}(t_j).
-\]
+\]$
 
 The corresponding linear system is solved to obtain the Bernstein coefficients.
 
 In one dimension,
 
-\[
+$\[
 A C = F,
-\]
+\]$
 
 where
 
@@ -446,21 +434,19 @@ Once the Bernstein coefficients have been computed, the polynomial can be evalua
 
 The physical subdomain is first mapped to normalized coordinates:
 
-\[
-t_k
-=
+$\[
+t_k =
 \frac{x_k-a_k}{b_k-a_k}.
-\]
+\]$
 
 The Bernstein basis functions are then constructed using AA arithmetic.
 
 The polynomial is evaluated as
 
-\[
-p_B(t)
-=
+$\[
+p_B(t) =
 \sum_i C_i B_i(t).
-\]
+\]$
 
 Since the coefficients \(C_i\) are numerical values and the basis functions \(B_i(t)\) are represented using Affine Arithmetic, the resulting polynomial evaluation is itself an affine form.
 
@@ -474,57 +460,55 @@ One of the main advantages of the Bernstein representation is its convex-hull pr
 
 Because
 
-\[
+$\[
 B_i(t)\geq0
-\]
+\]$
 
 and
 
-\[
+$\[
 \sum_iB_i(t)=1,
-\]
+\]$
 
 the polynomial
 
-\[
+$\[
 p_B(t)=\sum_i C_iB_i(t)
-\]
+\]$
 
 is a convex combination of its Bernstein coefficients.
 
 Therefore,
 
-\[
+$\[
 \min_i C_i
 \leq
 p_B(t)
 \leq
 \max_i C_i.
-\]
+\]$
 
 Consequently, if the minimum and maximum Bernstein coefficients are
 
-\[
-C_{\min}
-=
+$\[
+C_{\min} =
 \min_i C_i
-\]
+\]$
 
 and
 
-\[
-C_{\max}
-=
+$\[
+C_{\max} =
 \max_i C_i,
-\]
+\]$
 
 then
 
-\[
+$\[
 p_B(X_i)
 \subseteq
 [C_{\min},C_{\max}].
-\]
+\]$
 
 This provides a simple coefficient-based enclosure of the polynomial without requiring direct interval evaluation of the polynomial expression.
 
@@ -534,15 +518,15 @@ This provides a simple coefficient-based enclosure of the polynomial without req
 
 The polynomial surrogate is used to separate the original function into
 
-\[
+$\[
 f(x)=p_B(x)+r(x),
-\]
+\]$
 
 where
 
-\[
+$\[
 r(x)=f(x)-p_B(x)
-\]
+\]$
 
 is the approximation residual.
 
@@ -556,19 +540,17 @@ Two residual calculations are implemented.
 
 The polynomial is evaluated using Affine Arithmetic:
 
-\[
+$\[
 p_{\mathrm{AA}}(X_i).
-\]
+\]$
 
 The residual is then computed directly as
 
-\[
-r_{\mathrm{AA}}(X_i)
-=
-f_{\mathrm{AA}}(X_i)
--
+$\[
+r_{\mathrm{AA}}(X_i) =
+f_{\mathrm{AA}}(X_i) -
 p_{\mathrm{AA}}(X_i).
-\]
+\]$
 
 This approach preserves the dependency information available through the AA representation.
 
@@ -586,31 +568,30 @@ A second residual enclosure uses the Bernstein convex-hull property.
 
 Suppose the function has the AA enclosure
 
-\[
+$\[
 f(X_i)
 \subseteq
 [f_i^-,f_i^+]
-\]
+\]$
 
 and the Bernstein coefficients provide
 
-\[
+$\[
 p_B(X_i)
 \subseteq
 [p_i^-,p_i^+].
-\]
+\]$
 
 Then
 
-\[
-r(X_i)
-=
+$\[
+r(X_i) =
 f(X_i)-p_B(X_i)
-\]
+\]$
 
 is bounded by
 
-\[
+$\[
 r(X_i)
 \subseteq
 \left[
@@ -618,19 +599,19 @@ f_i^- - p_i^+,
 \;
 f_i^+ - p_i^-
 \right].
-\]
+\]$
 
 In the implementation,
 
-\[
+$\[
 p_i^-=\min_j C_j,
 \qquad
 p_i^+=\max_j C_j.
-\]
+\]$
 
 Therefore,
 
-\[
+$\[
 r_B(X_i)
 \subseteq
 \left[
@@ -638,7 +619,7 @@ f_i^- - C_{\max},
 \;
 f_i^+ - C_{\min}
 \right].
-\]
+\]$
 
 This is stored as
 
@@ -654,22 +635,22 @@ and provides a residual enclosure based on the Bernstein coefficient range.
 
 For each subdomain \(X_i\), the method produces a local residual enclosure
 
-\[
+$\[
 r(X_i)
 \subseteq
 [r_i^-,r_i^+].
-\]
+\]$
 
 The global residual enclosure is obtained by taking the hull of all local intervals:
 
-\[
+$\[
 r(X)
 \subseteq
 \mathrm{hull}
 \left(
 \bigcup_i r(X_i)
 \right).
-\]
+\]$
 
 Similarly, global hulls can be computed for
 
@@ -929,41 +910,40 @@ The framework reports several different enclosures because they represent differ
 
 ### Function hull
 
-\[
+$\[
 f(X)
-\]
+\]$
 
 represents the global Affine Arithmetic enclosure of the original function.
 
 ### Bernstein coefficient hull
 
-\[
+$\[
 p_{\mathrm{Bern}}(X)
-\]
+\]$
 
 is obtained from the minimum and maximum Bernstein coefficients.
 
 ### AA polynomial hull
 
-\[
+$\[
 p_{\mathrm{AA}}(X)
-\]
+\]$
 
 is obtained by directly evaluating the Bernstein polynomial using Affine Arithmetic.
 
 ### Direct residual AA hull
 
-\[
-r_{\mathrm{AA}}(X)
-=
+$\[
+r_{\mathrm{AA}}(X) =
 f_{\mathrm{AA}}(X)-p_{\mathrm{AA}}(X).
-\]
+\]$
 
 ### Bernstein residual hull
 
-\[
+$\[
 r_{\mathrm{Bern}}(X)
-\]
+\]$
 
 is obtained by combining the AA enclosure of the function with the Bernstein coefficient-based enclosure of the polynomial.
 
@@ -977,7 +957,7 @@ The current framework supports several benchmark functions.
 
 ## Branin
 
-The normalized input variables are mapped to the standard Branin domain before evaluating the function.
+The normalised input variables are mapped to the standard Branin domain before evaluating the function.
 
 The implementation contains both a NumPy version and an Affine Arithmetic version.
 
@@ -985,7 +965,7 @@ The implementation contains both a NumPy version and an Affine Arithmetic versio
 
 ## Ackley
 
-The Ackley function is implemented for configurable dimension:
+The Ackley function is implemented for configurable dimensions:
 
 ```python
 Ackley_numpy(x, d=2)
@@ -997,7 +977,7 @@ and
 test_AckleyAA(x, d=2, cheb=False)
 ```
 
-The normalized variables in \([0,1]^d\) are mapped to the standard Ackley input range.
+The normalised variables in \([0,1]^d\) are mapped to the standard Ackley input range.
 
 ---
 
@@ -1070,32 +1050,32 @@ The Bernstein representation is particularly useful for range bounding because o
 
 For
 
-\[
+$\[
 t\in[0,1],
-\]
+\]$
 
 the basis functions satisfy
 
-\[
+$\[
 B_{k,n}(t)\geq0
-\]
+\]$
 
 and
 
-\[
+$\[
 \sum_{k=0}^{n}B_{k,n}(t)=1.
-\]
+\]$
 
 Consequently, the polynomial value is always contained in the convex hull of its Bernstein coefficients:
 
-\[
+$\[
 p_B(t)
 \in
 \left[
 \min_k C_k,
 \max_k C_k
 \right].
-\]
+\]$
 
 This property allows the polynomial approximation to be bounded directly from its coefficients.
 
@@ -1109,10 +1089,10 @@ For each subdomain \(X_i\):
 
 ### Step 1: Define the local domain
 
-\[
+$\[
 X_i=
 \prod_{k=1}^{d}[a_k,b_k].
-\]
+\]$
 
 ### Step 2: Generate interpolation nodes
 
@@ -1126,9 +1106,9 @@ Select one of:
 
 Compute
 
-\[
+$\[
 F_j=f(x_j)
-\]
+\]$
 
 at the tensor-product interpolation points.
 
@@ -1136,67 +1116,66 @@ at the tensor-product interpolation points.
 
 Solve the interpolation systems to obtain
 
-\[
+$\[
 C_{i_1,\ldots,i_d}.
-\]
+\]$
 
 ### Step 5: Construct the Bernstein polynomial
 
-\[
-p_B(t)
-=
+$\[
+p_B(t) =
 \sum_i C_iB_i(t).
-\]
+\]$
 
 ### Step 6: Evaluate using Affine Arithmetic
 
 Construct
 
-\[
+$\[
 p_{\mathrm{AA}}(X_i).
-\]
+\]$
 
 ### Step 7: Obtain a Bernstein coefficient enclosure
 
 Use
 
-\[
+$\[
 p_B(X_i)
 \subseteq
 [C_{\min},C_{\max}].
-\]
+\]$
 
 ### Step 8: Compute the residual enclosure
 
 Using
 
-\[
+$\[
 r=f-p_B,
-\]
+\]$
 
 compute
 
-\[
+$\[
 r(X_i)
 \subseteq
 \left[
 f_i^- - C_{\max},
 f_i^+ - C_{\min}
 \right].
-\]
+\]$
 
 ### Step 9: Aggregate all subdomains
 
 Finally,
 
-\[
+$\[
 r(X)
 \subseteq
 \mathrm{hull}
 \left(
 \bigcup_i r(X_i)
 \right).
-\]
+\]$
 
 The same procedure can be used to obtain global enclosures for the function and polynomial.
 
