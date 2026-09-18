@@ -305,105 +305,59 @@ class AffineScalar:
     #     raise TypeError(
     #         "other must be AffineScalar, int, or float"
     #     )
-
     def __mul__(self, other):
 
-        # affine * affine
         if isinstance(other, self.__class__):
 
-            # ---------- align propagated symbols ----------
+            xi1, xi2 = self._align(self.xi, other.xi)
 
-            xi1, xi2 = self._align(
-                self.xi,
-                other.xi
-            )
-
-            # ---------- align remainder symbols ----------
-
-            delta1, delta2 = self._align(
-                self.delta,
-                other.delta
-            )
-
-            # ---------- affine part ----------
+            n1d, n2d = len(self.delta), len(other.delta)
 
             x0_new = self.x0 * other.x0
 
-            xi_aff = (
-                self.x0 * xi2
-                +
-                other.x0 * xi1
-            )
+            xi_aff = self.x0 * xi2 + other.x0 * xi1
 
-            delta_aff = (
-                self.x0 * delta2
-                +
-                other.x0 * delta1
-            )
+            # ---------- delta symbols are PRIVATE, never shared ----------
+            # self's own delta symbols persist with coefficient other.x0;
+            # other's own delta symbols persist with coefficient self.x0.
+            # These must be concatenated into disjoint slots, not aligned
+            # and summed positionally -- they are never the same symbol.
 
-            # ---------- combine all independent symbols ----------
+            delta_aff = np.concatenate((
+                other.x0 * self.delta,
+                self.x0 * other.delta
+            ))
 
-            coeff1 = np.concatenate(
-                (xi1, delta1)
-            )
+            # ---------- combined coefficient vectors over the FULL,
+            # disjoint noise-symbol index set: [shared xi | self's own
+            # delta | other's own delta], zero-padded where an operand
+            # has no coefficient on a symbol it doesn't own ----------
 
-            coeff2 = np.concatenate(
-                (xi2, delta2)
-            )
-
-            coeff1, coeff2 = self._align(
-                coeff1,
-                coeff2
-            )
-
-            # ---------- improved error term (26) ----------
+            coeff1 = np.concatenate((xi1, self.delta, np.zeros(n2d)))
+            coeff2 = np.concatenate((xi2, np.zeros(n1d), other.delta))
 
             v = coeff1 * coeff2
 
             v_pos = np.maximum(v, 0.0)
-
             v_neg = np.maximum(-v, 0.0)
 
-            diag_term = max(
-                np.sum(v_pos),
-                np.sum(v_neg)
-            )
+            diag_term = max(np.sum(v_pos), np.sum(v_neg))
 
             offdiag = 0.0
-
             n = len(coeff1)
 
             for i in range(n):
-
                 for j in range(i + 1, n):
-
-                    offdiag += abs(
-                        coeff1[i] * coeff2[j]
-                        +
-                        coeff1[j] * coeff2[i]
-                    )
+                    offdiag += abs(coeff1[i]*coeff2[j] + coeff1[j]*coeff2[i])
 
             e0 = diag_term + offdiag
 
-            _, e = self._outer_bound(
-                0.0,
-                float(e0)
-            )
+            _, e = self._outer_bound(0.0, float(e0))
 
-            # ---------- append fresh remainder symbol ----------
+            delta_new = np.append(delta_aff, e)
 
-            delta_new = np.append(
-                delta_aff,
-                e
-            )
+            return AffineScalar(x0=x0_new, xi=xi_aff, delta=delta_new)
 
-            return AffineScalar(
-                x0=x0_new,
-                xi=xi_aff,
-                delta=delta_new
-            )
-
-        # affine * scalar
         elif isinstance(other, (int, float)):
 
             return AffineScalar(
@@ -412,9 +366,117 @@ class AffineScalar:
                 delta=self.delta * other
             )
 
-        raise TypeError(
-            "other must be AffineScalar, int, or float"
-        )
+        raise TypeError("other must be AffineScalar, int, or float")
+
+    # def __mul__(self, other):
+
+    #     # affine * affine
+    #     if isinstance(other, self.__class__):
+
+    #         # ---------- align propagated symbols ----------
+
+    #         xi1, xi2 = self._align(
+    #             self.xi,
+    #             other.xi
+    #         )
+
+    #         # ---------- align remainder symbols ----------
+
+    #         delta1, delta2 = self._align(
+    #             self.delta,
+    #             other.delta
+    #         )
+
+    #         # ---------- affine part ----------
+
+    #         x0_new = self.x0 * other.x0
+
+    #         xi_aff = (
+    #             self.x0 * xi2
+    #             +
+    #             other.x0 * xi1
+    #         )
+
+    #         delta_aff = (
+    #             self.x0 * delta2
+    #             +
+    #             other.x0 * delta1
+    #         )
+
+    #         # ---------- combine all independent symbols ----------
+
+    #         coeff1 = np.concatenate(
+    #             (xi1, delta1)
+    #         )
+
+    #         coeff2 = np.concatenate(
+    #             (xi2, delta2)
+    #         )
+
+    #         coeff1, coeff2 = self._align(
+    #             coeff1,
+    #             coeff2
+    #         )
+
+    #         # ---------- improved error term (26) ----------
+
+    #         v = coeff1 * coeff2
+
+    #         v_pos = np.maximum(v, 0.0)
+
+    #         v_neg = np.maximum(-v, 0.0)
+
+    #         diag_term = max(
+    #             np.sum(v_pos),
+    #             np.sum(v_neg)
+    #         )
+
+    #         offdiag = 0.0
+
+    #         n = len(coeff1)
+
+    #         for i in range(n):
+
+    #             for j in range(i + 1, n):
+
+    #                 offdiag += abs(
+    #                     coeff1[i] * coeff2[j]
+    #                     +
+    #                     coeff1[j] * coeff2[i]
+    #                 )
+
+    #         e0 = diag_term + offdiag
+
+    #         _, e = self._outer_bound(
+    #             0.0,
+    #             float(e0)
+    #         )
+
+    #         # ---------- append fresh remainder symbol ----------
+
+    #         delta_new = np.append(
+    #             delta_aff,
+    #             e
+    #         )
+
+    #         return AffineScalar(
+    #             x0=x0_new,
+    #             xi=xi_aff,
+    #             delta=delta_new
+    #         )
+
+    #     # affine * scalar
+    #     elif isinstance(other, (int, float)):
+
+    #         return AffineScalar(
+    #             x0=self.x0 * other,
+    #             xi=self.xi * other,
+    #             delta=self.delta * other
+    #         )
+
+    #     raise TypeError(
+    #         "other must be AffineScalar, int, or float"
+    #     )
     
     def __rmul__(self, other):
 
@@ -532,9 +594,6 @@ class AffineScalar:
                 xi=np.zeros_like(self.xi),
                 delta=np.zeros(0)
             )
-
-        center_shift = 0.0
-        radius_scale = 1.0
 
         if lb <= 0 <= ub:
 
