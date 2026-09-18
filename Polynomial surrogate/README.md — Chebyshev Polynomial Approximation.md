@@ -10,37 +10,33 @@ The main objective is to approximate a nonlinear function locally by a polynomia
 
 For a function
 
-\[
+$\[
 f(x), \qquad x\in[0,1]^d,
 \]
+$
 
 the method constructs a local Chebyshev polynomial approximation
 
-\[
+$\[
 p(x) \approx f(x)
-\]
-
+\]$
 on each subdomain.
 
 The residual is then defined as
 
-\[
+$\[
 r(x)=f(x)-p(x).
-\]
-
+\]$
 Instead of relying only on the approximation error observed at the interpolation nodes, the residual is evaluated using affine arithmetic:
-
-\[
+$\[
 r(X)=f(X)-p(X),
-\]
-
+\]$
 which provides a conservative enclosure of the residual over the complete subdomain.
 
 The resulting global enclosure is obtained by taking the hull of the local interval enclosures over all subdomains.
 
 The overall procedure is therefore
-
-\[
+$\[
 \boxed{
 f
 \;\longrightarrow\;
@@ -50,8 +46,7 @@ r=f-p
 \;\longrightarrow\;
 \text{AA bound on }r
 }
-\]
-
+\]$
 combined with domain subintervalization.
 
 ---
@@ -107,56 +102,52 @@ residual_eval_AA(...)
 ```
 
 The physical subdomain
-
-\[
+$\[
 [a_k,b_k]
-\]
+\]$
 
 is mapped to the standard Chebyshev interval
 
-\[
+$\[
 [-1,1]
-\]
+\]$
 
 using
 
-\[
+$\[
 \xi_k =
 \frac{2x_k-(a_k+b_k)}
      {b_k-a_k}.
-\]
+\]$
 
 The Chebyshev basis is then generated using the three-term recurrence
 
-\[
+$\[
 T_0(\xi)=1,
-\]
+\]$
 
-\[
+$\[
 T_1(\xi)=\xi,
-\]
+\]$
 
-and, for \(k\geq1\),
+and, for $\(k\geq1\),$
 
-\[
-T_{k+1}(\xi)
-=
+$\[
+T_{k+1}(\xi)=
 2\xi T_k(\xi)-T_{k-1}(\xi).
-\]
+\]$
 
 The multidimensional polynomial is represented as a tensor-product expansion
 
-\[
-p(\xi_1,\ldots,\xi_d)
-=
+$\[
+p(\xi_1,\ldots,\xi_d)=
 \sum_{i_1=0}^{n_1}
 \cdots
 \sum_{i_d=0}^{n_d}
 C_{i_1,\ldots,i_d}
 \prod_{k=1}^{d}
 T_{i_k}(\xi_k).
-\]
-
+\]$
 The polynomial is evaluated using affine arithmetic.
 
 ---
@@ -166,11 +157,9 @@ The polynomial is evaluated using affine arithmetic.
 Provides utilities for domain subdivision and global interval hull computation.
 
 The original normalized domain is
-
-\[
+$\[
 [0,1]^d.
-\]
-
+\]$
 The function
 
 ```python
@@ -186,11 +175,9 @@ split_interval([4, 4])
 ```
 
 creates
-
-\[
+$\[
 4\times4=16
-\]
-
+\]$
 two-dimensional subdomains.
 
 The function
@@ -276,12 +263,9 @@ The Chebyshev coefficients are then computed using a multidimensional DCT-I.
 
 The resulting approximation is
 
-\[
-p(x)=
-\sum_{\mathbf{k}}
-C_{\mathbf{k}}
-T_{\mathbf{k}}(x).
-\]
+$\[
+p(x)=\sum_{\mathbf{k}}C_{\mathbf{k}}
+T_{\mathbf{k}}(x).\]$
 
 ---
 
@@ -295,13 +279,14 @@ f_AA = func_AA(X_sub, ...)
 
 This produces an enclosure
 
-\[
+$\[
 f(X_{\text{sub}})
 \subseteq
 [f_{\mathrm{lo}},f_{\mathrm{hi}}].
-\]
+\]$
 
 ---
+
 
 ### Step 5 — Evaluate the polynomial using AA
 
@@ -313,25 +298,23 @@ p_AA = evaluate_chebyshev_AA(...)
 
 This gives an enclosure
 
-\[
+$\[
 p(X_{\text{sub}})
 \subseteq
 [p_{\mathrm{lo}},p_{\mathrm{hi}}].
-\]
+\]$
 
 ---
+
 
 ### Step 6 — Bound the residual
 
 The residual is calculated as
 
-\[
-r(X_{\text{sub}})
-=
-f(X_{\text{sub}})
--
+$\[
+r(X_{\text{sub}})=f(X_{\text{sub}})-
 p(X_{\text{sub}}).
-\]
+\]$
 
 This is implemented by
 
@@ -341,13 +324,14 @@ residual = f - p
 
 and provides a conservative affine-arithmetic enclosure
 
-\[
+$\[
 r(X_{\text{sub}})
 \subseteq
 [r_{\mathrm{lo}},r_{\mathrm{hi}}].
-\]
+\]$
 
 ---
+
 
 ## 4. Global Bounds
 
@@ -369,20 +353,20 @@ residual_hull = hull_intervals(residual_intervals)
 
 Thus, the global residual enclosure is
 
-\[
+$$
 r(X)
 \subseteq
-\operatorname{hull}
+\mathrm{hull}
 \left(
 \bigcup_i r(X_i)
-\right),
-\]
+\right).
+$$
 
 where
 
-\[
+$\[
 X=\bigcup_i X_i.
-\]
+\]$
 
 The widths of the resulting global bounds are also reported:
 
@@ -444,10 +428,9 @@ nvec = [n1, n2, ..., nd]
 specifies the degree in each dimension.
 
 The resulting tensor-product polynomial contains
-
-\[
+$\[
 \prod_{k=1}^{d}(n_k+1)
-\]
+\]$
 
 Chebyshev basis terms.
 
@@ -458,10 +441,9 @@ nvec = [3, 3]
 ```
 
 requires
-
-\[
+$\[
 (3+1)(3+1)=16
-\]
+\]$
 
 basis terms.
 
@@ -527,10 +509,9 @@ The Chebyshev coefficients are obtained from floating-point evaluations of the o
 Therefore, the polynomial construction itself is a numerical approximation step.
 
 The rigorous bounding step is performed separately by evaluating
-
-\[
+$\[
 f(X)-p(X)
-\]
+\]$
 
 using affine arithmetic over each subdomain.
 
@@ -617,22 +598,20 @@ Chebyshev/
 The implemented approach combines **local Chebyshev polynomial approximation**, **affine-arithmetic evaluation**, and **domain subintervalization**.
 
 For each subdomain \(X_i\),
-
-\[
+$\[
 f(X_i)
-\]
+\]$
 
 is evaluated directly using affine arithmetic, while a local polynomial
 
-\[
+$\[
 p_i(x)
-\]
-
+\]$
 is constructed numerically and evaluated using affine arithmetic. The residual
 
-\[
+$\[
 r_i(X_i)=f(X_i)-p_i(X_i)
-\]
+\]$
 
 is then enclosed using affine arithmetic.
 
