@@ -352,14 +352,15 @@ residual_hull = hull_intervals(residual_intervals)
 ```
 
 Thus, the global residual enclosure is
-$\[
+
+$$
 r(X)
 \subseteq
-\operatorname{hull}
+\mathrm{hull}
 \left(
 \bigcup_i r(X_i)
-\right),
-\]$
+\right).
+$$
 
 where
 
