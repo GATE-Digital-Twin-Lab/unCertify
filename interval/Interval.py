@@ -78,6 +78,8 @@ class Interval:
         self._degen = degen
         self._dp = dp
         
+        self._left_right = [left, right] #Make an iterable to enable extra functionality
+        
     # TESTED CONSTURCTOR
     # def __init__(self, left, right=None, dp=None, degen=True):
     #     if right is None:        
@@ -123,7 +125,11 @@ class Interval:
         # return f"Interval.I(left={self._left}, right={self._right}, "+\
         #         f"degen={self._degen}, dp={self._dp}, precision={self.precision})"
         return f"interval([{self.leftval:0.{self.precision}f}, {self.rightval:0.{self.precision}f}])"
-
+    
+    def __iter__(self):
+        for item in self._left_right:
+            yield item
+            
     def mid(self): return (self.leftval + self.rightval) / 2.0
     
     def width(self): return (self.rightval - self.leftval)
@@ -402,6 +408,8 @@ class Interval:
             return inputs[0] * np.array(inputs[1]) #This should only be invoked if left is array and right is an interval 
         if ufunc is np.divide and method == "__call__":
             return inputs[0] / np.array(inputs[1])
+        if ufunc is np.power and method == "__call__":
+            return inputs[0] ** np.array(inputs[1])
         if ufunc is np.rad2deg and method == "__call__":
             return I(np.rad2deg(inputs[0].leftval), np.rad2deg(inputs[0].rightval))
         return NotImplemented
@@ -696,10 +704,12 @@ def to_interval(array):
         
     return arr_of_ival
 
-def _generate_points_(interval, n=1000):
+def generate_points(interval, n=1000):
     '''Generate n linearly spaced points from within the interval.'''
-    a,b = interval.bounds()
-    return np.linspace(a, b, n)
+    if hasattr(interval, '__iter__'): #An interval array
+        points = [np.linspace(*ival.bounds(), n) for ival in interval]
+        return points
+    return np.linspace(*interval.bounds(), n)
 
 #%% Methods for interval data
 def interval_array(data):
@@ -852,6 +862,22 @@ def _check_numeric_(a):
     return type(a) == int or type(a) == float 
 
 #%% Plotting
+def errorbar(x:Union[list, np.ndarray], data:Union[list, np.ndarray], ax=None, label=None, **kwargs):
+    if ax is None:
+        ax = plt.subplot()
+    # kwargs['facecolor'] = 'none'
+    # if 'color' not in kwargs.keys(): kwargs['edgecolor'] = 'k'
+    # else: kwargs['edgecolor'] = kwargs['color']; kwargs.pop('color')
+    if 'color' not in kwargs.keys(): kwargs['color'] = 'k'
+    if 'lw' not in kwargs.keys(): kwargs['lw'] = 2
+    if 'capsize' not in kwargs.keys(): kwargs['capsize'] = 4
+    if 'fmt' not in kwargs.keys(): kwargs['fmt'] = ' '
+    if label: kwargs['label']=label
+    
+    plt.errorbar(x, mid(data), [mid(data)-left(data), right(data)-mid(data)], **kwargs)
+
+#Here define a plot of stacked intervals without y-axis - take implementation from AIAA UQDG codes
+    
 def plot(data:Union[list, np.ndarray], ax=None, label=None, **kwargs):
     if ax is None:
         ax = plt.subplot()
@@ -868,7 +894,7 @@ def plot(data:Union[list, np.ndarray], ax=None, label=None, **kwargs):
         for ivl in data[:i]: #Check if raising is needed
             if overlaps(ival, ivl): raise_now += raise_step
         ival.plot(ax=ax, label=label, raise_up=raise_now, **kwargs)
-        
+
 def plot2d(interval_list, ax=None, label=None, **kwargs):
     if ax is None:
         ax = plt.subplot()
