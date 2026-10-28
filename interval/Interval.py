@@ -713,8 +713,18 @@ def generate_points(interval, n=1000):
 
 #%% Methods for interval data
 def interval_array(data):
-    """Construct a list of multiple interval objects."""
-    return np.array([Interval(item) for item in data])
+    """Construct an array of multiple interval objects.
+    'data' can take one of two shapes:
+        - an array-like of n, two-element array-likes, where each of the n, first-level elements is the interval, or
+        - an array-like of two n-element array-likes, where the first first-level element contains the lower bounds 
+          for the n intervals and the second one contains their upper bounds.
+    """
+    numel = len(data)
+    if numel == 2: #Bounds
+        if len(data[0]) != len(data[1]):
+            raise Exception('Bounds of interval array must be the same length')
+        return np.array([Interval(lb,rb) for lb, rb in zip(data[0], data[1])])
+    return np.array([Interval(item) for item in data]) #Intervals
 
 def left(data:Union[list, np.ndarray]) -> np.ndarray:
     return np.array([ival.leftval for ival in data])
